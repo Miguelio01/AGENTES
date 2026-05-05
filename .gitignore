@@ -31,5 +31,6 @@ coverage/
 .vitest/
 
 # WhatsApp sessions (Local)
-sessions/
+/sessions/
+apps/gateway/sessions/
 .worktrees/
