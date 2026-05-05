@@ -30,4 +30,9 @@ export interface IInventoryProvider {
    * Registra un nuevo pedido en la hoja de pedidos de Google Sheets
    */
   registerOrder(order: Order): Promise<void>;
+
+  /**
+   * Añade un cliente a la lista de espera para un producto específico
+   */
+  addToWaitlist(clientId: string, productId: string): Promise<void>;
 }

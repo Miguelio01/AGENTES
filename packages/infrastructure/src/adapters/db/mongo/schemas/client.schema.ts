@@ -8,6 +8,13 @@ export const ClientSchema = new Schema({
     intensity: { type: Number, required: true },
     reason: { type: String },
   },
+  billingData: {
+    taxId: String,
+    email: String,
+    address: String,
+    city: String,
+    phone: String,
+  },
   metadata: { type: Object },
   createdAt: { type: Date, required: true },
 }, { timestamps: true });

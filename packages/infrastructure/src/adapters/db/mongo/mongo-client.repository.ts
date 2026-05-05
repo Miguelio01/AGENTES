@@ -14,6 +14,7 @@ export class MongoClientRepository implements IClientRepository {
           intensity: client.emotionalState.intensity,
           reason: client.emotionalState.reason,
         },
+        billingData: client.billingData,
         metadata: client.metadata,
         createdAt: client.createdAt,
       },
@@ -33,6 +34,7 @@ export class MongoClientRepository implements IClientRepository {
         doc.emotionalState.intensity,
         doc.emotionalState.reason
       ),
+      billingData: doc.billingData,
       metadata: doc.metadata,
       createdAt: doc.createdAt,
     });
@@ -48,6 +50,7 @@ export class MongoClientRepository implements IClientRepository {
         doc.emotionalState.intensity,
         doc.emotionalState.reason
       ),
+      billingData: doc.billingData,
       metadata: doc.metadata,
       createdAt: doc.createdAt,
     }));

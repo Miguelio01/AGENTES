@@ -44,9 +44,26 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
   }
 
   async updateStock(productId: string, quantityChange: number): Promise<void> {
-    // Lógica compleja para encontrar la fila y actualizarla
-    // Por ahora, simulamos el éxito como un mock según el plan
-    console.log(`[MOCK] Updating stock for ${productId} by ${quantityChange}`);
+    const response = await this.sheets.spreadsheets.values.get({
+      spreadsheetId: this.spreadsheetId,
+      range: 'Inventario!A2:E',
+    });
+
+    const rows = response.data.values;
+    if (!rows) throw new Error('No se encontraron datos en el inventario');
+
+    const rowIndex = rows.findIndex((row: any) => row[0] === productId);
+    if (rowIndex === -1) throw new Error('Producto no encontrado');
+
+    const currentStock = parseInt(rows[rowIndex][3]) || 0;
+    const newStock = currentStock + quantityChange;
+
+    await this.sheets.spreadsheets.values.update({
+      spreadsheetId: this.spreadsheetId,
+      range: `Inventario!D${rowIndex + 2}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[newStock]] }
+    });
   }
 
   async registerOrder(order: Order): Promise<void> {
@@ -65,11 +82,25 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       await this.sheets.spreadsheets.values.append({
         spreadsheetId: this.spreadsheetId,
         range: 'Pedidos!A2',
-        valueInputOption: 'RAW',
+        valueInputOption: 'USER_ENTERED',
         requestBody: { values },
       });
     } catch (error) {
       console.error('Error registering order in Google Sheets:', error);
+    }
+  }
+
+  async addToWaitlist(clientId: string, productId: string): Promise<void> {
+    const values = [[new Date().toISOString(), clientId, productId, 'PENDING']];
+    try {
+      await this.sheets.spreadsheets.values.append({
+        spreadsheetId: this.spreadsheetId,
+        range: 'ListaEspera!A2',
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values },
+      });
+    } catch (error) {
+      console.error('Error adding to waitlist in Google Sheets:', error);
     }
   }
 }
