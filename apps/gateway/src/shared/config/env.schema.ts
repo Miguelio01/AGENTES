@@ -9,6 +9,7 @@ export const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   WHATSAPP_API_TOKEN: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_ADMIN_ID: z.string().optional(),
   USE_OLLAMA: z.string().optional().default('false'),
   OLLAMA_URL: z.string().url().optional(),
   OLLAMA_MODEL: z.string().optional(),
