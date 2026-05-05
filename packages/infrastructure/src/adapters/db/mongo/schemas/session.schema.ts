@@ -13,5 +13,6 @@ export const SessionSchema = new Schema({
     metadata: Object,
   }],
   status: { type: String, enum: ['active', 'closed'], default: 'active' },
+  flowState: { type: String, default: 'IDLE' },
   lastActivity: { type: Date, required: true },
 }, { timestamps: true });

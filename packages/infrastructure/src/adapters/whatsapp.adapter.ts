@@ -36,8 +36,27 @@ export class WhatsAppAdapter implements IChannel {
       version,
       auth: {
         creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, { level: 'silent' } as any),
+        keys: makeCacheableSignalKeyStore(state.keys, { 
+          level: 'silent',
+          log: () => {},
+          debug: () => {},
+          info: () => {},
+          warn: () => {},
+          error: () => {},
+          trace: () => {},
+          child: function() { return this; }
+        } as any),
       },
+      logger: { 
+        level: 'silent',
+        log: () => {},
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        trace: () => {},
+        child: function() { return this; }
+      } as any,
       printQRInTerminal: true,
     });
 
@@ -88,7 +107,21 @@ export class WhatsAppAdapter implements IChannel {
     if (!this.isConnected) {
       throw new Error('WhatsApp not connected');
     }
+    
+    // Small delay to simulate typing if message is long
+    const typingDuration = Math.min(message.content.length * 50, 2000);
+    await new Promise(resolve => setTimeout(resolve, typingDuration));
+    
     await this.sock.sendMessage(recipientId, { text: message.content });
+    
+    // Reset presence
+    await this.sock.sendPresenceUpdate('paused', recipientId);
+  }
+
+  async setTyping(recipientId: string, isTyping: boolean): Promise<void> {
+    if (this.isConnected && this.sock) {
+      await this.sock.sendPresenceUpdate(isTyping ? 'composing' : 'paused', recipientId);
+    }
   }
 
   async stop(): Promise<void> {

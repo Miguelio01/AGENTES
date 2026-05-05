@@ -19,6 +19,7 @@ export class MongoSessionRepository implements ISessionRepository {
           metadata: m.metadata,
         })),
         status: session.status,
+        flowState: session.flowState,
         lastActivity: session.lastActivity,
       },
       { upsert: true, new: true }
@@ -35,6 +36,7 @@ export class MongoSessionRepository implements ISessionRepository {
       agentId: doc.agentId,
       history: doc.history.map((m: any) => new Message(m)),
       status: doc.status,
+      flowState: doc.flowState,
       lastActivity: doc.lastActivity,
     });
   }
@@ -48,6 +50,7 @@ export class MongoSessionRepository implements ISessionRepository {
       agentId: doc.agentId,
       history: doc.history.map((m: any) => new Message(m)),
       status: doc.status,
+      flowState: doc.flowState,
       lastActivity: doc.lastActivity,
     });
   }
@@ -60,6 +63,7 @@ export class MongoSessionRepository implements ISessionRepository {
       agentId: doc.agentId,
       history: doc.history.map((m: any) => new Message(m)),
       status: doc.status,
+      flowState: doc.flowState,
       lastActivity: doc.lastActivity,
     }));
   }

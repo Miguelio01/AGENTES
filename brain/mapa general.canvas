@@ -1,0 +1,14 @@
+{
+	"nodes":[
+		{"id":"b09d83ba0ab2d2af","type":"group","x":220,"y":-520,"width":460,"height":687,"color":"3","label":"etiquetas"},
+		{"id":"76349a146455ff72","type":"file","file":"img/WhatsApp Image 2026-04-30 at 11.01.48.jpeg","x":240,"y":-380,"width":399,"height":148},
+		{"id":"95f281d6c99d474f","type":"file","file":"img/WhatsApp Image 2026-04-30 at 11.01.47.jpeg","x":240,"y":-232,"width":400,"height":379},
+		{"id":"8c23800a2eb112aa","type":"file","file":"img/WhatsApp Image 2026-04-30 at 11.01.47 (1).jpeg","x":240,"y":-463,"width":400,"height":83},
+		{"id":"58283c05ee6e6bc0","x":860,"y":-541,"width":400,"height":400,"type":"file","file":"productos/index_productos.md"},
+		{"id":"88f3100e7e6a7fe0","type":"file","file":"img/IMG_0292.jpg","x":520,"y":-740,"width":160,"height":160}
+	],
+	"edges":[
+		{"id":"3d6fc202b89d061a","fromNode":"58283c05ee6e6bc0","fromSide":"left","toNode":"b09d83ba0ab2d2af","toSide":"right"},
+		{"id":"329ade3c8447b15c","fromNode":"58283c05ee6e6bc0","fromSide":"left","toNode":"88f3100e7e6a7fe0","toSide":"right"}
+	]
+}

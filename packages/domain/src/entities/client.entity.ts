@@ -1,9 +1,20 @@
 import { EmotionalState } from '../value-objects/emotional-state.vo';
 
+export interface BillingData {
+  documentType: 'CC' | 'NIT' | 'CE' | 'PP' | 'DUMMY';
+  documentNumber: string;
+  fullName: string;
+  email: string;
+  address: string;
+  city: string;
+  phone: string;
+}
+
 export interface ClientProps {
   id: string; // WhatsApp number or ID
   name: string;
   emotionalState: EmotionalState;
+  billingData?: BillingData;
   metadata?: Record<string, any>;
   createdAt: Date;
 }
@@ -22,6 +33,7 @@ export class Client {
   get id(): string { return this.props.id; }
   get name(): string { return this.props.name; }
   get emotionalState(): EmotionalState { return this.props.emotionalState; }
+  get billingData(): BillingData | undefined { return this.props.billingData; }
   get metadata(): Record<string, any> | undefined { return this.props.metadata; }
   get createdAt(): Date { return this.props.createdAt; }
 
@@ -36,5 +48,9 @@ export class Client {
 
   updateEmotionalState(newState: EmotionalState): void {
     this.props.emotionalState = newState;
+  }
+
+  updateBillingData(billingData: BillingData): void {
+    this.props.billingData = billingData;
   }
 }

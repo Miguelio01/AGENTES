@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { Agent, IAgentRepository, AGENT_REPOSITORY_PORT } from '@agentes/domain';
+import { Agent, AGENT_REPOSITORY_PORT } from '@agentes/domain';
+import type { IAgentRepository } from '@agentes/domain';
 
 @Injectable()
 export class AgentsService {

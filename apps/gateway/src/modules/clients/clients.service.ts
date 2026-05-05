@@ -1,5 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
-import { Client, IClientRepository, CLIENT_REPOSITORY_PORT } from '@agentes/domain';
+import { Client, CLIENT_REPOSITORY_PORT } from '@agentes/domain';
+import type { IClientRepository } from '@agentes/domain';
 
 @Injectable()
 export class ClientsService {

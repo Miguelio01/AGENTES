@@ -12,17 +12,24 @@ export class OllamaProvider implements ILLMProvider {
   }
 
   async generateResponse(messages: Message[], options?: Record<string, any>): Promise<LLMResponse> {
-    const response = await axios.post(`${this.baseUrl}/api/chat`, {
-      model: this.model,
-      messages: messages.map(m => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: m.content,
-      })),
-      stream: false,
-    });
+    try {
+      const response = await axios.post(`${this.baseUrl}/api/chat`, {
+        model: this.model,
+        messages: messages.map(m => ({
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content,
+        })),
+        stream: false,
+      }, {
+        timeout: 45000 // 45 segundos para dar margen a la IA local
+      });
 
-    return {
-      content: response.data.message.content,
-    };
+      return {
+        content: response.data.message.content,
+      };
+    } catch (error: any) {
+      console.error('Ollama Error:', error.message);
+      throw error;
+    }
   }
 }
