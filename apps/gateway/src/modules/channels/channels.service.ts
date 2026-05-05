@@ -46,8 +46,18 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
       senderId,
       async (reply) => {
         await this.sendMessage(reply, senderId, message.channel as any);
+      },
+      async (isTyping) => {
+        await this.setPresence(senderId, message.channel as any, isTyping);
       }
     );
+  }
+
+  async setPresence(recipientId: string, channelName: 'whatsapp' | 'telegram', isTyping: boolean) {
+    if (channelName === 'whatsapp' && this.whatsapp) {
+      await this.whatsapp.setTyping(recipientId, isTyping);
+    }
+    // Telegram could be added here too
   }
 
   async sendMessage(message: Message, recipientId: string, channelName: 'whatsapp' | 'telegram') {

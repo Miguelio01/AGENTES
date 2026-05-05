@@ -34,3 +34,16 @@
     - Implementación de Adaptadores de MongoDB con Mongoose en la capa de Infraestructura.
     - Conexión del Gateway al Cluster de MongoDB Atlas para almacenamiento permanente de agentes, clientes e historiales.
 - **Normalización del Monorepo:** Ajuste de `package.json` y `exports` para asegurar la resolución de módulos entre paquetes locales.
+
+## 2026-05-03 (Hoy)
+### Implementación de Fresquitoh y Conectividad WhatsApp
+- **Vinculación Real:** Se logró la conexión exitosa con el WhatsApp de Frescoh! superando bloqueos de sesión y conflictos de loggers en Baileys.
+- **Personalidad de Marca:** Nacimiento de **Fresquitoh**, el personaje insignia. Implementación de su voz campesina ("sumercé", "fresquito") y lógica de servicio afable.
+- **Robustez y UX:**
+    - Implementación del estado **"Escribiendo..."** instantáneo en WhatsApp.
+    - Configuración de **timeouts y fallbacks** para Ollama (resiliencia ante retrasos de la IA local).
+    - Optimización de hardware local: Cambio de modelo a **`llama3.2:3b`** para respuestas inmediatas.
+- **Seguridad e Inteligencia:**
+    - Defensa contra ataques de ingeniería social mediante frases de distracción temáticas (matas de ricas, bultos de papa).
+    - Conexión dinámica con el **Cerebro de Obsidian**: El agente ahora consulta `index_productos.md` para ofrecer solo productos reales (Huevos, Tilapia, Bayas).
+    - Actualización de gramajes de productos (Frambuesa a 120g) reflejada instantáneamente en el agente.

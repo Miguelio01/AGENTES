@@ -9,7 +9,7 @@ export interface KnowledgeResult {
 
 export interface IKnowledgeBase {
   /**
-   * Realiza una búsqueda semántica (RAG) en la base de conocimientos (Obsidian)
+   * Realiza una búsqueda semántica (RAG) en la base de conocimientos
    */
   search(query: string, limit?: number): Promise<KnowledgeResult[]>;
 
@@ -17,4 +17,9 @@ export interface IKnowledgeBase {
    * Obtiene un documento específico por su ID o ruta
    */
   getDocument(path: string): Promise<string | null>;
+
+  /**
+   * Añade nuevo conocimiento al cerebro (crea un nuevo documento)
+   */
+  addKnowledge(title: string, content: string, metadata?: Record<string, any>): Promise<void>;
 }

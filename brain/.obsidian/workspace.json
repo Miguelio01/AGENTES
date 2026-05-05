@@ -1,0 +1,225 @@
+{
+  "main": {
+    "id": "cb2e086e76928d11",
+    "type": "split",
+    "children": [
+      {
+        "id": "c34c6b982bad94f6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "f4d43138d48a15d4",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Vista gráfica"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "8ed6bd862d9ef4b1",
+    "type": "split",
+    "children": [
+      {
+        "id": "76c535f53d355e5c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "500b5d57d6f7954c",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de archivos"
+            }
+          },
+          {
+            "id": "14d858bfbaab09dc",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Buscar"
+            }
+          },
+          {
+            "id": "16141c9a2ccef0ef",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "efefdb163fa70188",
+    "type": "split",
+    "children": [
+      {
+        "id": "afa20c57b99386bf",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "3ba5004a80b53318",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Enlaces entrantes"
+            }
+          },
+          {
+            "id": "d89e8c2e6b8eae54",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Enlaces salientes"
+            }
+          },
+          {
+            "id": "8b78bc311757b0f7",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "7b91e0b4a7412fe8",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas las propiedades"
+            }
+          },
+          {
+            "id": "960518a7e580dad0",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Esquema"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir selector rápido": false,
+      "graph:Abrir vista gráfica": false,
+      "canvas:Crear nuevo lienzo": false,
+      "daily-notes:Abrir la nota de hoy": false,
+      "templates:Insertar plantilla": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Crear nueva base": false
+    }
+  },
+  "active": "f4d43138d48a15d4",
+  "lastOpenFiles": [
+    "mapa general.canvas",
+    "estrategia/adn_marca.md",
+    "Misión.md",
+    "Visión.md",
+    "estrategia/objetivos_2026.md",
+    "estrategia/mision.md",
+    "identidad/identidad_corporativa.md",
+    "identidad/identidad_verbal.md",
+    "objetivos_2026.md",
+    "productos/uchuva.md",
+    "productos/tilapia_fresca.md",
+    "productos/mora.md",
+    "productos/index_productos.md",
+    "productos/huevos_pastoreo.md",
+    "productos/frutas_organicas.md",
+    "productos/fresas.md",
+    "productos/frambuesas.md",
+    "productos/arandanos.md",
+    "manual_de_marca/identidad_corporativa.md",
+    "identidad/anti_brand.md",
+    "estrategia/propuesta_valor.md",
+    "estrategia/vision.md",
+    "estrategia/estrategia_confianza.md",
+    "productos",
+    "estrategia",
+    "identidad",
+    "manual_de_marca/adn_marca.md",
+    "manual_de_marca/propuesta_valor.md",
+    "temp_images/pagina_4.jpg",
+    "img",
+    "img/WhatsApp Image 2026-04-30 at 11.01.48.jpeg",
+    "img/WhatsApp Image 2026-04-30 at 11.01.47.jpeg",
+    "img/WhatsApp Image 2026-04-30 at 11.01.47 (1).jpeg",
+    "img/IMG_0292.jpg",
+    "temp_images/pagina_2.jpg",
+    "temp_images/pagina_1.jpg",
+    "temp_images/pagina_7.jpg",
+    "temp_images/pagina_11.jpg",
+    "manual_de_marca/estrategia_confianza.md",
+    "temp_images/pagina_14.jpg",
+    "temp_images",
+    "manual_de_marca/pagina_1.pdf",
+    "manual_de_marca"
+  ]
+}

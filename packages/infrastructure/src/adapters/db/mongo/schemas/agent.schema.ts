@@ -1,4 +1,13 @@
-import { Schema } from 'mongoose';
+import { Schema, Document } from 'mongoose';
+
+export interface AgentDocument extends Document<string> {
+  name: string;
+  systemPrompt: string;
+  tools: string[];
+  config: Record<string, any>;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export const AgentSchema = new Schema({
   _id: { type: String, required: true },

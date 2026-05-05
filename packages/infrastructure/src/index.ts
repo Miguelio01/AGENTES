@@ -1,6 +1,7 @@
 export * from './adapters/whatsapp.adapter';
 export * from './adapters/telegram.adapter';
 export * from './adapters/emotion-analyzer.adapter';
+export * from './adapters/llm-emotion-analyzer.adapter';
 export * from './adapters/google-sheets.adapter';
 export * from './adapters/gmail.adapter';
 export * from './adapters/obsidian-rag.adapter';

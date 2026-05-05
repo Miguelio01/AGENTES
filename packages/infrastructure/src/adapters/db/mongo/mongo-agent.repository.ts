@@ -1,8 +1,9 @@
 import { Agent, IAgentRepository } from '@agentes/domain';
 import { Model } from 'mongoose';
+import { AgentDocument } from './schemas/agent.schema';
 
 export class MongoAgentRepository implements IAgentRepository {
-  constructor(private readonly agentModel: Model<any>) {}
+  constructor(private readonly agentModel: Model<AgentDocument>) {}
 
   async save(agent: Agent): Promise<Agent> {
     await this.agentModel.findByIdAndUpdate(
