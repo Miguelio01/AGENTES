@@ -1,7 +1,9 @@
 import { EmotionalState } from '../value-objects/emotional-state.vo';
 
 export interface BillingData {
-  taxId: string;
+  documentType: 'CC' | 'NIT' | 'CE' | 'PP' | 'DUMMY';
+  documentNumber: string;
+  fullName: string;
   email: string;
   address: string;
   city: string;

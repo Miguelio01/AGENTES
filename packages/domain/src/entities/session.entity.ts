@@ -3,8 +3,10 @@ import { Message } from './message.entity';
 export type SessionFlowState = 
   | 'IDLE' 
   | 'AWAITING_ORDER' 
+  | 'AWAITING_E_BILLING_CHOICE'
+  | 'AWAITING_DOC_TYPE'
+  | 'AWAITING_DOC_NUMBER'
   | 'AWAITING_ADDRESS' 
-  | 'AWAITING_DOCUMENT_ID' 
   | 'AWAITING_FULL_NAME' 
   | 'AWAITING_PAYMENT_PROOF'
   | 'AWAITING_ADMIN_APPROVAL';

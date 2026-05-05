@@ -9,7 +9,9 @@ export const ClientSchema = new Schema({
     reason: { type: String },
   },
   billingData: {
-    taxId: String,
+    documentType: { type: String, enum: ['CC', 'NIT', 'CE', 'PP', 'DUMMY'] },
+    documentNumber: String,
+    fullName: String,
     email: String,
     address: String,
     city: String,
