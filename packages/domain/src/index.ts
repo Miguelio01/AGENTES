@@ -4,6 +4,8 @@ export * from './entities/session.entity';
 export * from './entities/client.entity';
 export * from './entities/order.entity';
 export * from './value-objects/emotional-state.vo';
+export * from './events/domain-event';
+export * from './events/order.events';
 export * from './ports/inventory.provider.port';
 export * from './ports/payment.scanner.port';
 export * from './ports/knowledge.base.port';
