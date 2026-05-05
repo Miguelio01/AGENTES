@@ -20,7 +20,7 @@
     "@google/generative-ai": "^0.24.1",
     "@hapi/boom": "^10.0.1",
     "@whiskeysockets/baileys": "7.0.0-rc.9",
-    "axios": "^1.7.9",
+    "axios": "^1.15.2",
     "googleapis": "^171.4.0",
     "mongoose": "^9.4.1",
     "qrcode-terminal": "^0.12.0",
