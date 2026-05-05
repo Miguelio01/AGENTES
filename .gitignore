@@ -32,3 +32,4 @@ coverage/
 
 # WhatsApp sessions (Local)
 sessions/
+.worktrees/
