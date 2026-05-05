@@ -13,6 +13,7 @@ export const envSchema = z.object({
   USE_OLLAMA: z.string().optional().default('false'),
   OLLAMA_URL: z.string().url().optional(),
   OLLAMA_MODEL: z.string().optional(),
+  GOOGLE_SHEETS_INVENTORY_ID: z.string().optional(),
   GOOGLE_WORKSPACE_CLIENT_ID: z.string().optional(),
   GOOGLE_WORKSPACE_CLIENT_SECRET: z.string().optional(),
 });
