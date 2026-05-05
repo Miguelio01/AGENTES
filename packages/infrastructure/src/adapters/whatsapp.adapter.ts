@@ -4,7 +4,8 @@ import makeWASocket, {
   DisconnectReason, 
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
-  ConnectionState
+  ConnectionState,
+  downloadMediaMessage
 } from '@whiskeysockets/baileys';
 import * as qrcode from 'qrcode-terminal';
 import * as path from 'path';
@@ -87,15 +88,33 @@ export class WhatsAppAdapter implements IChannel {
         if (!m.message || m.key.fromMe) continue;
 
         const senderId = m.key.remoteJid!;
-        const content = m.message.conversation || 
-                        m.message.extendedTextMessage?.text || 
-                        '';
+        const messageType = Object.keys(m.message)[0];
+        
+        let content = '';
+        let mediaBuffer: Buffer | null = null;
+        let mimeType = '';
 
-        if (content) {
+        if (messageType === 'conversation') {
+          content = m.message.conversation;
+        } else if (messageType === 'extendedTextMessage') {
+          content = m.message.extendedTextMessage.text;
+        } else if (messageType === 'imageMessage') {
+          content = m.message.imageMessage.caption || '[Imagen de comprobante]';
+          mimeType = m.message.imageMessage.mimetype;
+          // Descargar la imagen
+          try {
+            mediaBuffer = await downloadMediaMessage(m, 'buffer', {});
+          } catch (err) {
+            console.error('Error downloading media:', err);
+          }
+        }
+
+        if (content || mediaBuffer) {
           const domainMessage = Message.create({
             content,
             role: 'user',
             channel: 'whatsapp',
+            metadata: mediaBuffer ? { media: mediaBuffer, mimeType } : undefined
           });
           await this.onMessageReceived(domainMessage, senderId);
         }

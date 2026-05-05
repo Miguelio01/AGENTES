@@ -4,7 +4,8 @@ export class PaymentProofSubmittedEvent extends DomainEvent {
   constructor(
     public readonly orderId: string, 
     public readonly clientId: string, 
-    public readonly mediaUrl: string
+    public readonly mediaBuffer?: Buffer,
+    public readonly metadata?: Record<string, any>
   ) {
     super();
   }

@@ -32,10 +32,13 @@ export class OrderSaga {
       return;
     }
 
+    const clientName = event.metadata?.clientName || 'Cliente Desconocido';
+    
     const adminMessage = Message.create({
-      content: `📦 *NUEVO PAGO POR CONFIRMAR*\n\nCliente: ${event.clientId}\nPedido: ${event.orderId}\n\nResponde con: "Aprobar ${event.orderId}" para confirmar y procesar el inventario.`,
+      content: `📸 *NUEVO COMPROBANTE DE PAGO*\n\n*Cliente:* ${clientName} (${event.clientId})\n*Pedido:* ${event.orderId}\n\nResponde con: "Aprobar ${event.orderId}" para descontar del inventario real.`,
       role: 'assistant',
-      channel: 'telegram'
+      channel: 'telegram',
+      metadata: { media: event.mediaBuffer } // Pasar el buffer para que el adaptador envíe foto
     });
 
     await this.channelsService.sendMessage(adminMessage, adminId, 'telegram');

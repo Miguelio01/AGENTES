@@ -153,15 +153,24 @@ export class OrchestratorService {
     }
 
     if (session.flowState === 'AWAITING_PAYMENT_PROOF') {
-      // Si el mensaje parece ser un comprobante (contiene texto de transferencia o es una imagen)
-      // Nota: Aquí se debería validar si el mensaje tiene adjuntos en una implementación real
-      if (message.content.toLowerCase().includes('transferencia') || message.content.toLowerCase().includes('comprobante')) {
-        this.eventEmitter.emit('payment.proof.submitted', new PaymentProofSubmittedEvent('order-temp', senderId, 'media-pending'));
+      // Si el mensaje contiene media (imagen) o palabras clave
+      const isComprobante = message.metadata?.media || 
+                           message.content.toLowerCase().includes('transferencia') || 
+                           message.content.toLowerCase().includes('comprobante');
+                           
+      if (isComprobante) {
+        this.eventEmitter.emit('payment.proof.submitted', new PaymentProofSubmittedEvent(
+          'ORDER-' + Date.now().toString().slice(-6), 
+          senderId, 
+          message.metadata?.media,
+          { clientName: client.name }
+        ));
+        
         session.setFlowState('AWAITING_ADMIN_APPROVAL');
         await this.sessionsService.update(session);
         await presenceCallback(false);
         await replyCallback(Message.create({
-          content: '¡Gracias sumercé! Ya le mandé el recibo al patrón para que lo apruebe. En un momentico le confirmo.',
+          content: '¡Gracias sumercé! Ya le mandé el recibo al patrón para que lo apruebe. En un momentico le confirmo el despacho.',
           role: 'assistant',
           channel: message.channel
         }));

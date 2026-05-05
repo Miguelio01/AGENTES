@@ -22,20 +22,35 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
 
   async listProducts(): Promise<ProductInventory[]> {
     try {
-      const response = await this.sheets.spreadsheets.values.get({
+      // 1. Leer Stock de la hoja 'Inventario '
+      const invResponse = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'Inventario!A2:E', // Asumiendo que la hoja se llama Inventario
+        range: "'Inventario '!A2:C",
       });
 
-      const rows = response.data.values;
-      if (!rows) return [];
+      // 2. Leer Precios de venta de la hoja 'costos'
+      const costResponse = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: "costos!A2:E",
+      });
 
-      return rows.map((row: any) => ({
+      const invRows = invResponse.data.values || [];
+      const costRows = costResponse.data.values || [];
+
+      // Mapear precios por ID para búsqueda rápida
+      const priceMap = new Map();
+      costRows.forEach((row: any) => {
+        // ID es col A (0), el precio puede estar en B (1) o E (4)
+        let priceStr = row[1] || row[4] || '0';
+        const price = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
+        priceMap.set(row[0], price);
+      });
+
+      return invRows.map((row: any) => ({
         id: row[0],
-        name: row[1],
-        description: row[2],
-        stock: parseInt(row[3]) || 0,
-        price: parseFloat(row[4]) || 0,
+        name: row[1]?.trim(),
+        stock: parseInt(row[2]) || 0,
+        price: priceMap.get(row[0]) || 0,
       }));
     } catch (error) {
       console.error('Error fetching products from Google Sheets:', error);
@@ -46,21 +61,21 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
   async updateStock(productId: string, quantityChange: number): Promise<void> {
     const response = await this.sheets.spreadsheets.values.get({
       spreadsheetId: this.spreadsheetId,
-      range: 'Inventario!A2:E',
+      range: "'Inventario '!A2:C",
     });
 
     const rows = response.data.values;
     if (!rows) throw new Error('No se encontraron datos en el inventario');
 
     const rowIndex = rows.findIndex((row: any) => row[0] === productId);
-    if (rowIndex === -1) throw new Error('Producto no encontrado');
+    if (rowIndex === -1) throw new Error(`Producto ${productId} no encontrado`);
 
-    const currentStock = parseInt(rows[rowIndex][3]) || 0;
+    const currentStock = parseInt(rows[rowIndex][2]) || 0;
     const newStock = currentStock + quantityChange;
 
     await this.sheets.spreadsheets.values.update({
       spreadsheetId: this.spreadsheetId,
-      range: `Inventario!D${rowIndex + 2}`,
+      range: `'Inventario '!C${rowIndex + 2}`,
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [[newStock]] }
     });

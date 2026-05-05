@@ -36,7 +36,14 @@ export class TelegramAdapter implements IChannel {
   }
 
   async send(message: Message, recipientId: string): Promise<void> {
-    await this.bot.telegram.sendMessage(recipientId, message.content);
+    if (message.metadata?.media) {
+      await this.bot.telegram.sendPhoto(recipientId, { source: message.metadata.media }, {
+        caption: message.content,
+        parse_mode: 'Markdown'
+      });
+    } else {
+      await this.bot.telegram.sendMessage(recipientId, message.content, { parse_mode: 'Markdown' });
+    }
   }
 
   async stop(): Promise<void> {
