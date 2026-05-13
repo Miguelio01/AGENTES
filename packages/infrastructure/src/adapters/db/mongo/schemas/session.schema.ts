@@ -14,5 +14,10 @@ export const SessionSchema = new Schema({
   }],
   status: { type: String, enum: ['active', 'closed'], default: 'active' },
   flowState: { type: String, default: 'IDLE' },
+  emotionalState: {
+    emotion: { type: String, required: true, default: 'neutral' },
+    intensity: { type: Number, required: true, default: 0.5 },
+    reason: { type: String },
+  },
   lastActivity: { type: Date, required: true },
 }, { timestamps: true });

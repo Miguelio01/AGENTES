@@ -87,7 +87,32 @@ export class WhatsAppAdapter implements IChannel {
       for (const m of messages) {
         if (!m.message || m.key.fromMe) continue;
 
-        const senderId = m.key.remoteJid!;
+        const remoteJid = m.key.remoteJid || '';
+        const remoteJidAlt = (m.key as any).remoteJidAlt || '';
+        const participant = m.key.participant || '';
+        
+        let realPhone = '';
+        
+        // Prioridad 1: remoteJid si es un JID estándar
+        if (remoteJid.includes('@s.whatsapp.net')) {
+          realPhone = remoteJid.split('@')[0];
+        } 
+        // Prioridad 2: remoteJidAlt si el principal es un LID
+        else if (remoteJidAlt.includes('@s.whatsapp.net')) {
+          realPhone = remoteJidAlt.split('@')[0];
+        }
+        // Prioridad 3: participant (en grupos)
+        else if (participant.includes('@s.whatsapp.net')) {
+          realPhone = participant.split('@')[0];
+        } 
+        // Fallback: usar lo que tengamos
+        else {
+          realPhone = remoteJid.split('@')[0];
+        }
+
+        const senderId = remoteJid; // Mantenemos el JID original para responder
+        const pushName = m.pushName || m.verifiedName || '';
+        const cleanPhone = realPhone;
         const messageType = Object.keys(m.message)[0];
         
         let content = '';
@@ -114,7 +139,11 @@ export class WhatsAppAdapter implements IChannel {
             content,
             role: 'user',
             channel: 'whatsapp',
-            metadata: mediaBuffer ? { media: mediaBuffer, mimeType } : undefined
+            metadata: {
+              ...(mediaBuffer ? { media: mediaBuffer, mimeType } : {}),
+              pushName,
+              phone: cleanPhone
+            }
           });
           await this.onMessageReceived(domainMessage, senderId);
         }

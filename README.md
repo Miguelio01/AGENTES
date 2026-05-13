@@ -2,9 +2,31 @@
 
 Sistema de orquestación de agentes de IA con arquitectura hexagonal, diseñado para automatizar ventas, atención al cliente y gestión de productos digitales a través de múltiples canales.
 
-## 🏗️ Arquitectura del Sistema
+## 🏗️ Arquitectura del Sistema: Agencia de Agentes (A2A)
 
-El proyecto utiliza una **Arquitectura Hexagonal (Puertos y Adaptadores)** dividida en un Monorepo:
+El proyecto evoluciona hacia una **Agencia de Agentes**, donde las responsabilidades están segregadas para maximizar la escalabilidad y la claridad:
+
+### 1. El Director: Orquestador (`OrchestratorService`)
+- **Misión:** Punto de entrada único. Gestiona la conexión con canales (WhatsApp/Telegram), identifica al cliente y mantiene el estado de la sesión.
+- **Acción:** No toma decisiones inteligentes ni redacta respuestas; coordina el flujo entre los agentes especializados.
+
+### 2. El Cerebro: Agente de Conocimiento e Intención (`KnowledgeAgent`)
+- **Misión:** Analizar el mensaje del usuario y el historial para determinar la **intención** (Venta, Soporte, Saludo).
+- **Acción:** Consulta la base de conocimientos (Obsidian) y decide a qué agente "obrero" debe delegar la tarea.
+
+### 3. Los Obreros: Agentes Especializados
+- **SalesAgent (Ventas):** Dueño del "Reglamento de Ventas". Gestiona el carrito, gramajes y facturación.
+- **InventoryAgent (Inventario):** Consulta stock real en Google Sheets y aplica reglas de empaque.
+- **FinanceAgent (Finanzas):** (En desarrollo) Encargado de validación de transferencias y conciliación.
+- **EscalationAgent (Soporte):** Gestiona el paso a humanos vía Telegram cuando la IA no puede resolver.
+
+### 4. La Voz: Agente de Síntesis / Fresquitoh (`VoiceAgent`)
+- **Misión:** Personalidad y Empatía. Recibe los "datos crudos" de los otros agentes y los traduce a la voz de la marca.
+- **Acción:** Asegura que Fresquitoh siempre hable como un campesino afable, sin importar qué agente generó la información técnica.
+
+---
+
+## 🏗️ Capas Técnicas (Hexagonal)
 
 ### 1. Capa de Dominio (`@agentes/domain`)
 - **Entidades:** `Agent`, `Client`, `Session`, `Message`, `Order`.
@@ -19,8 +41,8 @@ El proyecto utiliza una **Arquitectura Hexagonal (Puertos y Adaptadores)** divid
 
 ### 3. Gateway de Orquestación (`apps/gateway`)
 - **Framework:** NestJS.
-- **Misión:** Coordina el flujo omnicanal, inyecta contexto emocional y gestiona la lógica de negocio.
-- **API:** Documentación interactiva con Swagger.
+- **Misión:** Implementa la lógica de la Agencia A2A y expone la API.
+
 
 ## 🛠️ Stack Tecnológico
 - **Lenguaje:** TypeScript / Node.js

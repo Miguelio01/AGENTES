@@ -1,4 +1,4 @@
-import { Session, ISessionRepository, Message } from '@agentes/domain';
+import { Session, ISessionRepository, Message, EmotionalState } from '@agentes/domain';
 import { Model } from 'mongoose';
 
 export class MongoSessionRepository implements ISessionRepository {
@@ -20,9 +20,14 @@ export class MongoSessionRepository implements ISessionRepository {
         })),
         status: session.status,
         flowState: session.flowState,
+        emotionalState: {
+          emotion: session.emotionalState.emotion,
+          intensity: session.emotionalState.intensity,
+          reason: session.emotionalState.reason,
+        },
         lastActivity: session.lastActivity,
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
     return session;
   }
@@ -37,6 +42,11 @@ export class MongoSessionRepository implements ISessionRepository {
       history: doc.history.map((m: any) => new Message(m)),
       status: doc.status,
       flowState: doc.flowState,
+      emotionalState: new EmotionalState(
+        doc.emotionalState.emotion,
+        doc.emotionalState.intensity,
+        doc.emotionalState.reason
+      ),
       lastActivity: doc.lastActivity,
     });
   }
@@ -51,6 +61,30 @@ export class MongoSessionRepository implements ISessionRepository {
       history: doc.history.map((m: any) => new Message(m)),
       status: doc.status,
       flowState: doc.flowState,
+      emotionalState: new EmotionalState(
+        doc.emotionalState.emotion,
+        doc.emotionalState.intensity,
+        doc.emotionalState.reason
+      ),
+      lastActivity: doc.lastActivity,
+    });
+  }
+
+  async findLastByClientId(clientId: string): Promise<Session | null> {
+    const doc = await this.sessionModel.findOne({ clientId }).sort({ lastActivity: -1 });
+    if (!doc) return null;
+    return new Session({
+      id: doc._id,
+      clientId: doc.clientId,
+      agentId: doc.agentId,
+      history: doc.history.map((m: any) => new Message(m)),
+      status: doc.status,
+      flowState: doc.flowState,
+      emotionalState: new EmotionalState(
+        doc.emotionalState.emotion,
+        doc.emotionalState.intensity,
+        doc.emotionalState.reason
+      ),
       lastActivity: doc.lastActivity,
     });
   }
@@ -64,6 +98,11 @@ export class MongoSessionRepository implements ISessionRepository {
       history: doc.history.map((m: any) => new Message(m)),
       status: doc.status,
       flowState: doc.flowState,
+      emotionalState: new EmotionalState(
+        doc.emotionalState.emotion,
+        doc.emotionalState.intensity,
+        doc.emotionalState.reason
+      ),
       lastActivity: doc.lastActivity,
     }));
   }

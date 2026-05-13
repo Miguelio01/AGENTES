@@ -12,6 +12,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { AiModule } from './modules/ai/ai.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
+import { FinanceModule } from './modules/finance/finance.module';
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
     EventEmitterModule.forRoot(),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
       }),
       inject: [ConfigService],
@@ -34,6 +35,7 @@ import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
     ChannelsModule,
     AiModule,
     OrchestratorModule,
+    FinanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

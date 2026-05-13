@@ -4,9 +4,7 @@ import { google } from 'googleapis';
 export class GmailAdapter implements IPaymentScanner {
   private gmail: any;
 
-  constructor(
-    private readonly credentials: any
-  ) {
+  constructor(private readonly credentials: any) {
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
@@ -14,32 +12,81 @@ export class GmailAdapter implements IPaymentScanner {
     this.gmail = google.gmail({ version: 'v1', auth });
   }
 
-  async findConfirmation(amount: number, dateLimit: Date): Promise<PaymentConfirmation | null> {
-    // Ejemplo de búsqueda: mensajes de Bancolombia con el monto específico
-    const query = `Bancolombia ${amount} after:${dateLimit.toISOString().split('T')[0].replace(/-/g, '/')}`;
-    
-    const response = await this.gmail.users.messages.list({
-      userId: 'me',
-      q: query,
-    });
+  async findConfirmation(
+    amount: number,
+    dateLimit: Date,
+  ): Promise<PaymentConfirmation | null> {
+    const afterDate = dateLimit.toISOString().split('T')[0].replace(/-/g, '/');
+    // Búsqueda amplia para Nequi y Bancolombia
+    const query = `(Nequi OR Bancolombia) "${amount.toLocaleString('es-CO')}" after:${afterDate}`;
 
-    if (!response.data.messages || response.data.messages.length === 0) {
-      return null;
+    try {
+      const response = await this.gmail.users.messages.list({
+        userId: 'me',
+        q: query,
+      });
+
+      if (!response.data.messages || response.data.messages.length === 0) {
+        return null;
+      }
+
+      for (const msg of response.data.messages) {
+        const detail = await this.gmail.users.messages.get({
+          userId: 'me',
+          id: msg.id,
+        });
+        const body = this.decodeMessageBody(detail.data);
+
+        if (this.isConfirmedPayment(body, amount)) {
+          return {
+            id: msg.id,
+            amount,
+            timestamp: new Date(parseInt(detail.data.internalDate)),
+            provider: body.includes('Nequi') ? 'Nequi' : 'Bancolombia',
+            reference: this.extractReference(body),
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Error scanning Gmail:', e);
     }
 
-    const messageId = response.data.messages[0].id;
-    const detail = await this.gmail.users.messages.get({ userId: 'me', id: messageId });
-    
-    // Aquí iría el parsing del cuerpo del correo para extraer detalles reales
-    return {
-      id: messageId,
-      amount,
-      timestamp: new Date(),
-      provider: 'Bancolombia (Parsed)',
-    };
+    return null;
   }
 
-  async listRecentConfirmations(limit: number = 10): Promise<PaymentConfirmation[]> {
-    return []; // Implementación futura
+  async listRecentConfirmations(
+    limit: number = 10,
+  ): Promise<PaymentConfirmation[]> {
+    // Implementación para ver los últimos sin filtrar por monto
+    return [];
+  }
+
+  private decodeMessageBody(message: any): string {
+    let body = '';
+    if (message.payload.parts) {
+      body = message.payload.parts
+        .map((part: any) =>
+          part.body.data
+            ? Buffer.from(part.body.data, 'base64').toString('utf-8')
+            : '',
+        )
+        .join(' ');
+    } else if (message.payload.body.data) {
+      body = Buffer.from(message.payload.body.data, 'base64').toString('utf-8');
+    }
+    return body;
+  }
+
+  private isConfirmedPayment(body: string, amount: number): boolean {
+    const cleanBody = body.replace(/\s+/g, ' ');
+    // Verificar si el monto aparece en el cuerpo (con o sin separadores de miles)
+    const amountStr = amount.toString();
+    const formattedAmount = amount.toLocaleString('es-CO');
+    return cleanBody.includes(amountStr) || cleanBody.includes(formattedAmount);
+  }
+
+  private extractReference(body: string): string {
+    const refMatch = body.match(/(referencia|comprobante|nro|id):\s*(\d+)/i);
+    return refMatch ? refMatch[2] : 'N/A';
   }
 }
