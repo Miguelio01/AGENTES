@@ -3,7 +3,7 @@ import { Client, Session, PaymentProofSubmittedEvent } from '../src';
 
 describe('Domain Entities and Events', () => {
   it('should allow updating billing data on Client', () => {
-    const client = Client.create('123', 'Miguel');
+    const client = Client.create('123', 'Miguel', '123');
     const billingData = {
       taxId: '102030',
       email: 'miguel@example.com',

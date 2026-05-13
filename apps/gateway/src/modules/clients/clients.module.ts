@@ -18,6 +18,6 @@ import { Model } from 'mongoose';
       inject: [getModelToken('Client')],
     },
   ],
-  exports: [ClientsService]
+  exports: [ClientsService, CLIENT_REPOSITORY_PORT],
 })
 export class ClientsModule {}

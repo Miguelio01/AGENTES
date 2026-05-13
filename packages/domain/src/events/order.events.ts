@@ -14,7 +14,8 @@ export class PaymentProofSubmittedEvent extends DomainEvent {
 export class AdminPaymentApprovedEvent extends DomainEvent {
   constructor(
     public readonly orderId: string, 
-    public readonly adminId: string
+    public readonly adminId: string,
+    public readonly clientId?: string
   ) {
     super();
   }

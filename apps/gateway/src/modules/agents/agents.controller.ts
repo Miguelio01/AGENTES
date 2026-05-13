@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Body, Param, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  NotFoundException,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { AgentsService } from './agents.service';
 import { CreateAgentDto } from './dto/create-agent.dto';
@@ -27,8 +34,8 @@ export class AgentsController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un agente por ID' })
-  findOne(@Param('id') id: string) {
-    const agent = this.agentsService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const agent = await this.agentsService.findOne(id);
     if (!agent) {
       throw new NotFoundException(`Agente con ID ${id} no encontrado`);
     }

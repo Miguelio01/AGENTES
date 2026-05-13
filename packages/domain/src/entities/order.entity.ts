@@ -32,8 +32,11 @@ export class Order {
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
 
-  static create(props: Omit<OrderProps, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'total'>): Order {
-    const total = props.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  static create(props: Omit<OrderProps, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'total'> & { total?: number }): Order {
+    const total = props.total !== undefined 
+      ? props.total 
+      : props.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
     return new Order({
       ...props,
       id: crypto.randomUUID(),

@@ -15,3 +15,4 @@ export * from './ports/llm.provider.port';
 export * from './ports/agent.repository.port';
 export * from './ports/client.repository.port';
 export * from './ports/session.repository.port';
+export * from './types/a2a.types';

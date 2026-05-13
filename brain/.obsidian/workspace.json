@@ -11,6 +11,20 @@
             "id": "f4d43138d48a15d4",
             "type": "leaf",
             "state": {
+              "type": "markdown",
+              "state": {
+                "file": "productos/index_productos.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "index_productos"
+            }
+          },
+          {
+            "id": "5486fc36236d983b",
+            "type": "leaf",
+            "state": {
               "type": "graph",
               "state": {},
               "icon": "lucide-git-fork",
@@ -178,8 +192,10 @@
   },
   "active": "f4d43138d48a15d4",
   "lastOpenFiles": [
-    "mapa general.canvas",
+    "estrategia/reglas_de_empaque.md",
+    "productos/index_productos.md",
     "estrategia/adn_marca.md",
+    "mapa general.canvas",
     "Misión.md",
     "Visión.md",
     "estrategia/objetivos_2026.md",
@@ -190,7 +206,6 @@
     "productos/uchuva.md",
     "productos/tilapia_fresca.md",
     "productos/mora.md",
-    "productos/index_productos.md",
     "productos/huevos_pastoreo.md",
     "productos/frutas_organicas.md",
     "productos/fresas.md",

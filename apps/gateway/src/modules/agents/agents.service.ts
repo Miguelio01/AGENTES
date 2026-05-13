@@ -5,7 +5,8 @@ import type { IAgentRepository } from '@agentes/domain';
 @Injectable()
 export class AgentsService {
   constructor(
-    @Inject(AGENT_REPOSITORY_PORT) private readonly agentRepository: IAgentRepository,
+    @Inject(AGENT_REPOSITORY_PORT)
+    private readonly agentRepository: IAgentRepository,
   ) {}
 
   async create(name: string, systemPrompt: string, tools: string[]) {

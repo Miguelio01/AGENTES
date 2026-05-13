@@ -20,6 +20,6 @@ import { Model } from 'mongoose';
     },
   ],
   controllers: [SessionsController],
-  exports: [SessionsService]
+  exports: [SessionsService],
 })
 export class SessionsModule {}

@@ -7,6 +7,9 @@ export interface ProductInventory {
   name: string;
   stock: number;
   price: number;
+  weightGrams?: number;
+  unitsPerPackage?: number;
+  packagingType?: string;
   description?: string;
 }
 
@@ -32,7 +35,27 @@ export interface IInventoryProvider {
   registerOrder(order: Order): Promise<void>;
 
   /**
+   * Registra un pedido en la lista de prepago (esperando validación de pago)
+   */
+  registerPrepaidOrder(order: Order, client: any): Promise<void>;
+
+  /**
+   * Mueve un pedido a la lista de entrega (pago confirmado)
+   */
+  registerDeliveryOrder(order: Order, client: any): Promise<void>;
+
+  /**
+   * Registra un pedido en la lista de espera (sin stock)
+   */
+  registerWaitlistOrder(order: Order, client: any): Promise<void>;
+
+  /**
    * Añade un cliente a la lista de espera para un producto específico
    */
   addToWaitlist(clientId: string, productId: string): Promise<void>;
+
+  /**
+   * Obtiene configuraciones globales (ej: domicilio, fechas entrega)
+   */
+  getConfig(): Promise<Record<string, string>>;
 }

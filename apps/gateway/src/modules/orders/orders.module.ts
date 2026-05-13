@@ -1,29 +1,22 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { OrderSaga } from './sagas/order.saga';
 import { ChannelsModule } from '../channels/channels.module';
 import { SessionsModule } from '../sessions/sessions.module';
-import { INVENTORY_PROVIDER_PORT } from '@agentes/domain';
-import { GoogleSheetsInventoryAdapter } from '@agentes/infrastructure';
+import { InventoryModule } from '../inventory/inventory.module';
+import { ClientsModule } from '../clients/clients.module';
 
 @Module({
-  imports: [ConfigModule, ChannelsModule, SessionsModule],
-  providers: [
-    OrdersService,
-    OrderSaga,
-    {
-      provide: INVENTORY_PROVIDER_PORT,
-      useFactory: (configService: ConfigService) => {
-        const spreadsheetId = configService.get<string>('GOOGLE_SHEETS_INVENTORY_ID') || 'mock-id';
-        // En una implementación real, aquí cargaríamos las credenciales desde un archivo o env
-        const credentials = {}; 
-        return new GoogleSheetsInventoryAdapter(spreadsheetId, credentials);
-      },
-      inject: [ConfigService],
-    },
+  imports: [
+    ConfigModule,
+    ChannelsModule,
+    SessionsModule,
+    InventoryModule,
+    ClientsModule,
   ],
+  providers: [OrdersService, OrderSaga],
   controllers: [OrdersController],
   exports: [OrdersService],
 })

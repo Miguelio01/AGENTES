@@ -4,10 +4,11 @@ import { AiModule } from '../ai/ai.module';
 import { AiService } from '../ai/ai.service';
 import { SessionsModule } from '../sessions/sessions.module';
 import { ClientsModule } from '../clients/clients.module';
+import { AgentsModule } from '../agents/agents.module';
 import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
 
 @Module({
-  imports: [AiModule, SessionsModule, ClientsModule],
+  imports: [AiModule, SessionsModule, ClientsModule, AgentsModule],
   providers: [
     OrchestratorService,
     {
@@ -16,7 +17,7 @@ import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
         // En lugar de pasar el provider ahora, pasamos un proxy o el servicio
         // Para este caso, creamos un objeto que cumpla con ILLMProvider pero delegue al aiService
         const lazyProvider = {
-          generateResponse: (messages) => aiService.getResponse(messages)
+          generateResponse: (messages) => aiService.getResponse(messages),
         };
         return new LlmEmotionAnalyzerAdapter(lazyProvider as any);
       },

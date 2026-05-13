@@ -26,6 +26,7 @@ export class TelegramAdapter implements IChannel {
         content,
         role: 'user',
         channel: 'telegram',
+        metadata: { from: ctx.from }
       });
 
       await this.onMessageReceived(domainMessage, senderId);

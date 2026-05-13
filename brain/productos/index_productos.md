@@ -25,4 +25,5 @@ Nuestras frutas son **Libres de Pesticidas**, cosechadas por campesinos locales 
 2.  **[[tilapia_fresca]]**: Proteína magra de cultivo sostenible (acuicultura responsable).
 
 ---
-Relacionado: [[identidad_corporativa]], [[estrategia_confianza]]
+Relacionado: [[identidad_corporativa]], [[estrategia_confianza]],[[reglas_de_empaque]]
+

@@ -5,7 +5,8 @@ import type { IClientRepository } from '@agentes/domain';
 @Injectable()
 export class ClientsService {
   constructor(
-    @Inject(CLIENT_REPOSITORY_PORT) private readonly clientRepository: IClientRepository,
+    @Inject(CLIENT_REPOSITORY_PORT)
+    private readonly clientRepository: IClientRepository,
   ) {}
 
   async create(client: Client) {

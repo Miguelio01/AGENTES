@@ -1,7 +1,12 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ILLMProvider, Message } from '@agentes/domain';
-import { GeminiProvider, OllamaProvider, ObsidianRAGAdapter } from '@agentes/infrastructure';
+import {
+  GeminiProvider,
+  OllamaProvider,
+  NvidiaNimProvider,
+  ObsidianRAGAdapter,
+} from '@agentes/infrastructure';
 
 @Injectable()
 export class AiService implements OnModuleInit {
@@ -11,13 +16,31 @@ export class AiService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit() {
+    const providerType = this.configService.get<string>('LLM_PROVIDER') || 'OLLAMA';
+    
+    if (providerType === 'NVIDIA') {
+      const nvidiaKey = this.configService.get<string>('NVIDIA_API_KEY');
+      const nvidiaUrl = this.configService.get<string>('NVIDIA_BASE_URL');
+      const nvidiaModel = this.configService.get<string>('NVIDIA_MODEL');
+      
+      if (nvidiaKey) {
+        this.logger.log(`🚀 Using NVIDIA NIM provider with model ${nvidiaModel}`);
+        this.provider = new NvidiaNimProvider(nvidiaKey, nvidiaUrl, nvidiaModel);
+        return;
+      }
+    }
+
     const geminiKey = this.configService.get<string>('GEMINI_API_KEY');
-    const useOllama = this.configService.get<string>('USE_OLLAMA') === 'true';
-    const ollamaUrl = this.configService.get<string>('OLLAMA_URL') || 'http://localhost:11434';
-    const ollamaModel = this.configService.get<string>('OLLAMA_MODEL') || 'llama3';
+    const useOllama = this.configService.get<string>('USE_OLLAMA') === 'true' || providerType === 'OLLAMA';
+    const ollamaUrl =
+      this.configService.get<string>('OLLAMA_URL') || 'http://localhost:11434';
+    const ollamaModel =
+      this.configService.get<string>('OLLAMA_MODEL') || 'llama3';
 
     if (useOllama) {
-      this.logger.log(`🤖 Using Ollama provider at ${ollamaUrl} with model ${ollamaModel}`);
+      this.logger.log(
+        `🤖 Using Ollama provider at ${ollamaUrl} with model ${ollamaModel}`,
+      );
       this.provider = new OllamaProvider(ollamaUrl, ollamaModel);
     } else if (geminiKey) {
       this.logger.log('✨ Using Gemini provider');
@@ -32,35 +55,62 @@ export class AiService implements OnModuleInit {
       throw new Error('LLM Provider not initialized');
     }
 
-    // Task 3: Semantic RAG (Obsidian Base)
+    // 1. Capa de Optimización de Tokens (Antes de RAG para tener espacio)
+    let optimizedMessages = this.optimizeMessages(messages);
+
+    // 2. Capa de Optimización RAG
     const vaultPath = this.configService.get<string>('OBSIDIAN_VAULT_PATH');
     if (vaultPath) {
       try {
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage && lastMessage.role === 'user') {
+        const lastUserMessage = [...optimizedMessages].reverse().find(m => m.role === 'user');
+        if (lastUserMessage) {
           const ragAdapter = new ObsidianRAGAdapter(vaultPath);
-          const results = await ragAdapter.search(lastMessage.content);
-          
+          const results = await ragAdapter.search(lastUserMessage.content);
+
           if (results.length > 0) {
-            const context = results.map(r => `[Source: ${r.source}]\n${r.content}`).join('\n---\n');
+            const context = results
+              .map((r) => `[Fte: ${r.source}]\n${r.content.substring(0, 600)}...`)
+              .join('\n---\n');
+            
             const systemMessage = Message.create({
               role: 'system',
-              content: `Utiliza la siguiente información de la base de conocimientos de la empresa para responder: \n\n${context}`,
-              channel: lastMessage.channel || 'system'
+              content: `INFORMACIÓN DE RESPALDO:\n${context}`,
+              channel: lastUserMessage.channel || 'system',
             });
-            
-            // Inject context at the beginning
-            messages.unshift(systemMessage);
-            this.logger.log(`🧠 RAG Context injected from ${results.length} files`);
+
+            // Inyectar justo después del prompt del sistema original
+            const sysIdx = optimizedMessages.findIndex(m => m.role === 'system');
+            if (sysIdx !== -1) {
+              optimizedMessages.splice(sysIdx + 1, 0, systemMessage);
+            } else {
+              optimizedMessages.unshift(systemMessage);
+            }
+            this.logger.log(`🧠 RAG: Inyectados ${results.length} fragmentos.`);
           }
         }
-      } catch (error) {
-        this.logger.error('Error injecting RAG context:', error);
+      } catch (error: any) {
+        this.logger.error('Error RAG:', error.message);
       }
     }
 
-    this.logger.log(`🤖 Generating response with provider for ${messages.length} messages...`);
-    return this.provider.generateResponse(messages);
+    this.logger.log(
+      `🤖 Generando respuesta con ${this.provider.getProviderName()} para ${optimizedMessages.length} mensajes...`,
+    );
+    
+    return this.provider.generateResponse(optimizedMessages);
+  }
+
+  private optimizeMessages(messages: Message[]): Message[] {
+    if (messages.length <= 6) return messages;
+
+    const systemPrompt = messages.find(m => m.role === 'system');
+    const others = messages.filter(m => m.role !== 'system');
+
+    // Mantener los últimos 8 mensajes para no perder el hilo
+    const window = others.slice(-8);
+
+    const result = systemPrompt ? [systemPrompt, ...window] : window;
+    return result;
   }
 
   getProvider(): ILLMProvider {
@@ -68,7 +118,8 @@ export class AiService implements OnModuleInit {
   }
 
   getKnowledgeBase(): ObsidianRAGAdapter {
-    const vaultPath = this.configService.get<string>('OBSIDIAN_VAULT_PATH') || './brain';
+    const vaultPath =
+      this.configService.get<string>('OBSIDIAN_VAULT_PATH') || './brain';
     return new ObsidianRAGAdapter(vaultPath);
   }
 }
