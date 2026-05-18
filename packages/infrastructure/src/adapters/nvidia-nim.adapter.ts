@@ -17,14 +17,31 @@ export class NvidiaNimProvider implements ILLMProvider {
     options?: Record<string, any>,
   ): Promise<LLMResponse> {
     try {
+      // Limpieza y validación estricta de mensajes para evitar {} que rompen la API
+      const sanitizedMessages = messages
+        .map((m: any) => {
+          // Extraer contenido y rol, manejando tanto instancias de clase como objetos planos
+          const role = m.role || (m.props && m.props.role);
+          const content = m.content || (m.props && m.props.content);
+
+          if (!role || !content) return null;
+
+          return {
+            role: role.toLowerCase(),
+            content: String(content),
+          };
+        })
+        .filter((m) => m !== null); // Eliminar mensajes malformados
+
+      if (sanitizedMessages.length === 0) {
+        throw new Error('No valid messages to send to NVIDIA NIM');
+      }
+
       const response = await axios.post(
         `${this.baseUrl}/chat/completions`,
         {
           model: this.model,
-          messages: messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: sanitizedMessages,
           temperature: options?.temperature ?? 0.5,
           top_p: options?.top_p ?? 0.7,
           max_tokens: options?.max_tokens ?? 1024,

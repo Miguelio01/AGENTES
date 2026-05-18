@@ -58,4 +58,14 @@ export interface IInventoryProvider {
    * Obtiene configuraciones globales (ej: domicilio, fechas entrega)
    */
   getConfig(): Promise<Record<string, string>>;
+
+  /**
+   * Elimina un pedido de la lista de prepago (tras ser movido a entrega)
+   */
+  removeFromPrepaidList(orderId: string): Promise<void>;
+
+  /**
+   * Recupera los detalles de un pedido registrado en la lista de prepago
+   */
+  getPrepaidOrderDetails(orderId: string): Promise<any>;
 }

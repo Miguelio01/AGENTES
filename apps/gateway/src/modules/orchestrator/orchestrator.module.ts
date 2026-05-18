@@ -5,10 +5,17 @@ import { AiService } from '../ai/ai.service';
 import { SessionsModule } from '../sessions/sessions.module';
 import { ClientsModule } from '../clients/clients.module';
 import { AgentsModule } from '../agents/agents.module';
+import { InventoryModule } from '../inventory/inventory.module';
 import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
 
 @Module({
-  imports: [AiModule, SessionsModule, ClientsModule, AgentsModule],
+  imports: [
+    AiModule,
+    SessionsModule,
+    ClientsModule,
+    AgentsModule,
+    InventoryModule,
+  ],
   providers: [
     OrchestratorService,
     {

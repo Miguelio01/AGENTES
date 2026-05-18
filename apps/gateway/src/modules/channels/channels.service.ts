@@ -77,12 +77,14 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
     // LOGICA DE ADMIN TELEGRAM
     const adminId = this.configService.get<string>('TELEGRAM_ADMIN_ID');
     if (message.channel === 'telegram' && senderId === adminId) {
-      if (message.content.toLowerCase().startsWith('aprobar')) {
+      const contentLow = message.content.toLowerCase();
+      
+      if (contentLow.startsWith('/aprobado')) {
         const parts = message.content.split(' ');
         const orderId = parts[1];
         if (orderId) {
           this.logger.log(`✅ Admin approved order: ${orderId}`);
-          const targetClientId = parts[2]; // Opcional: Aprobar [orderId] [clientId]
+          const targetClientId = parts[2]; 
           this.eventEmitter.emit(
             'order.approved',
             new AdminPaymentApprovedEvent(orderId, senderId, targetClientId),
@@ -94,6 +96,38 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
             channel: 'telegram',
           });
           await this.sendMessage(confirmation, senderId, 'telegram');
+          return;
+        } else {
+          const errorMsg = Message.create({
+            content: `Jefe, por favor dígame el ID del pedido, así: \`/aprobado ID-PEDIDO\``,
+            role: 'assistant',
+            channel: 'telegram',
+          });
+          await this.sendMessage(errorMsg, senderId, 'telegram');
+          return;
+        }
+      }
+
+      if (contentLow.startsWith('/rechazado')) {
+        const parts = message.content.split(' ');
+        const orderId = parts[1];
+        if (orderId) {
+          this.logger.log(`❌ Admin rejected order: ${orderId}`);
+          this.eventEmitter.emit('order.rejected', { orderId, adminId: senderId });
+          const confirmation = Message.create({
+            content: `¡Entendido jefe! Pedido ${orderId} rechazado. El stock será devuelto al inventario.`,
+            role: 'assistant',
+            channel: 'telegram',
+          });
+          await this.sendMessage(confirmation, senderId, 'telegram');
+          return;
+        } else {
+          const errorMsg = Message.create({
+            content: `Jefe, por favor dígame el ID del pedido para devolver el stock: \`/rechazado ID-PEDIDO\``,
+            role: 'assistant',
+            channel: 'telegram',
+          });
+          await this.sendMessage(errorMsg, senderId, 'telegram');
           return;
         }
       }

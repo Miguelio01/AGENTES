@@ -66,14 +66,14 @@ export class KnowledgeAgentService {
     Analiza el mensaje del usuario y clasifica su intención actual, considerando el HISTORIAL.
     
     INTENCIONES:
-    - INTENT_GREETING: Saludos iniciales o despedidas. 
-      * REGLA: Si el usuario está respondiendo a una pregunta tuya (ej: "¿Jumbo o Grandes?"), NO es GREETING.
-    - INTENT_BUY: El usuario está pidiendo productos, respondiendo aclaraciones (ej: "Jumbo", "Grandes"), confirmando el pedido, o preguntando el total.
+    - INTENT_GREETING: Saludos iniciales (hola, buenos días) o despedidas (chao, gracias). 
+      * REGLA: Si el usuario menciona productos o pregunta "cuánto es", "precio", "total", "valor", NO es GREETING.
+    - INTENT_BUY: El usuario está pidiendo productos, respondiendo aclaraciones (ej: "Jumbo", "Grandes"), confirmando el pedido ("si", "dale", "hágale"), o preguntando el total ("cuánto es", "total pedido").
       * REGLA: Palabras sueltas que coinciden con opciones dadas antes son INTENT_BUY.
-    - INTENT_CHECK_INVENTORY: Pregunta por qué hay disponible o precios.
-    - INTENT_QUESTION: Dudas generales.
+    - INTENT_CHECK_INVENTORY: Pregunta por qué hay disponible ("qué tienes", "muéstrame la lista").
+    - INTENT_QUESTION: Dudas sobre envíos, pagos o la tienda.
 
-    Responde ÚNICAMENTE con la etiqueta.
+    REGLA CRÍTICA: Responde ÚNICAMENTE con la etiqueta (ej: INTENT_BUY). No añadas puntos, ni listas, ni explicaciones.
       `.trim(),
       role: 'system',
       channel: 'system',
@@ -83,7 +83,11 @@ export class KnowledgeAgentService {
       ...history.slice(-4),
       classificationPrompt,
     ]);
-    const intent = classification.content.trim();
+    const rawIntent = classification.content.trim();
+    
+    // Robustez: Buscar la etiqueta INTENT_ dentro del texto por si el modelo alucina explicaciones
+    const intentMatch = rawIntent.match(/INTENT_[A-Z_]+/);
+    const intent = intentMatch ? intentMatch[0] : rawIntent;
 
     return {
       from: 'knowledge-agent',

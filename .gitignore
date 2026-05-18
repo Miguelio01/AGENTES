@@ -34,3 +34,14 @@ coverage/
 /sessions/
 apps/gateway/sessions/
 .worktrees/
+
+# Drafts and temporary scripts
+.borradores/
+
+# Work files (Logs and Specs)
+docs/logs/
+dev/requirements/
+dev/tasks/
+dev/features/
+*.canvas
+

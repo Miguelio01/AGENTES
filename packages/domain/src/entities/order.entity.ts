@@ -12,6 +12,7 @@ export interface OrderProps {
   clientId: string;
   agentId: string;
   items: OrderItem[];
+  deliveryFee: number;
   total: number;
   status: OrderStatus;
   paymentConfirmationId?: string;
@@ -26,20 +27,23 @@ export class Order {
   get clientId(): string { return this.props.clientId; }
   get agentId(): string { return this.props.agentId; }
   get items(): OrderItem[] { return [...this.props.items]; }
+  get deliveryFee(): number { return this.props.deliveryFee; }
   get total(): number { return this.props.total; }
   get status(): OrderStatus { return this.props.status; }
   get paymentConfirmationId(): string | undefined { return this.props.paymentConfirmationId; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
 
-  static create(props: Omit<OrderProps, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'total'> & { total?: number }): Order {
+  static create(props: Omit<OrderProps, 'id' | 'status' | 'createdAt' | 'updatedAt' | 'total' | 'deliveryFee'> & { id?: string, total?: number, deliveryFee?: number }): Order {
+    const deliveryFee = props.deliveryFee || 0;
     const total = props.total !== undefined 
       ? props.total 
-      : props.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      : props.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) + deliveryFee;
     
     return new Order({
       ...props,
-      id: crypto.randomUUID(),
+      id: props.id || crypto.randomUUID(),
+      deliveryFee,
       total,
       status: 'pending',
       createdAt: new Date(),

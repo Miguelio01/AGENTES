@@ -7,6 +7,7 @@ import { ChannelsModule } from '../channels/channels.module';
 import { SessionsModule } from '../sessions/sessions.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { ClientsModule } from '../clients/clients.module';
+import { AgentsModule } from '../agents/agents.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ClientsModule } from '../clients/clients.module';
     SessionsModule,
     InventoryModule,
     ClientsModule,
+    AgentsModule,
   ],
   providers: [OrdersService, OrderSaga],
   controllers: [OrdersController],

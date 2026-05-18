@@ -46,9 +46,18 @@ Este documento mapea las capacidades actuales y las piezas faltantes de la "Agen
 | **Dashboard de Monitoreo** | 🛑 Faltante | Interfaz visual para ver pedidos y estado emocional. |
 | **Métrica de LTV y Retención** | 🛑 Faltante | Saber quiénes son los clientes "Pata Negra" recurrentes. |
 
+## 7. Robustez Técnica y Optimización de Flujo (Motor) - [ACTUALIZACIÓN 16-MAY-2026]
+| Requerimiento | Estado | Notas |
+| :--- | :--- | :--- |
+| **Matching de Inventario Multinivel** | ⏳ Implementando | Priorizar Exacto > Prefijo > Fuzzy para evitar errores en productos similares. |
+| **Detección Híbrida de Intención** | ⏳ Implementando | Regex para pedidos obvios (número + producto) antes de llamar al LLM. |
+| **Interfaz de Menús Numerados** | ⏳ Implementando | Fallback para WhatsApp sin botones; selección por número de opción. |
+| **Extracción Validada de Pedidos** | ⏳ Implementando | Validar cantidades y existencia real antes de procesar el pedido. |
+| **Circuit Breaker (Google Sheets)** | ⏳ Implementando | Evitar caídas en cascada si la API de Sheets falla o tiene lag. |
+
 ---
 ## Conclusión de Gaps:
 Además del **Finance Agent**, los vacíos críticos son:
 1. **RAG Semántico:** Para que Fresquitoh sea un verdadero experto en los beneficios de los productos.
 2. **Inteligencia Logística:** Automatizar la creación de rutas y estados de despacho.
-3. **Dashboard:** Para que sumercé no dependa solo del log de la terminal para saber qué pasa.
+3. **Robustez del Orquestador:** Implementar la lógica híbrida para asegurar 95%+ de precisión en pedidos.

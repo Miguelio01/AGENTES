@@ -97,7 +97,12 @@ export class AiService implements OnModuleInit {
       `🤖 Generando respuesta con ${this.provider.getProviderName()} para ${optimizedMessages.length} mensajes...`,
     );
     
-    return this.provider.generateResponse(optimizedMessages);
+    try {
+      return await this.provider.generateResponse(optimizedMessages);
+    } catch (error: any) {
+      this.logger.error(`❌ Error en proveedor LLM: ${error.message}`);
+      throw error;
+    }
   }
 
   private optimizeMessages(messages: Message[]): Message[] {

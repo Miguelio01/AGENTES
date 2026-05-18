@@ -21,7 +21,7 @@ export class OllamaProvider implements ILLMProvider {
         })),
         stream: false,
       }, {
-        timeout: 45000 // 45 segundos para dar margen a la IA local
+        timeout: 90000 // 90 segundos para dar margen a la IA local
       });
 
       return {

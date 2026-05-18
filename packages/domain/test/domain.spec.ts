@@ -5,15 +5,15 @@ describe('Domain Entities and Events', () => {
   it('should allow updating billing data on Client', () => {
     const client = Client.create('123', 'Miguel', '123');
     const billingData = {
-      taxId: '102030',
       email: 'miguel@example.com',
       address: 'Calle Falsa 123',
-      city: 'Bogotá',
-      phone: '3001234567'
+      city: 'Bogotá'
     };
     
-    client.updateBillingData(billingData);
-    expect(client.billingData).toEqual(billingData);
+    client.updateProfile(billingData);
+    expect(client.email).toBe(billingData.email);
+    expect(client.address).toBe(billingData.address);
+    expect(client.city).toBe(billingData.city);
   });
 
   it('should manage Session flow state', () => {
