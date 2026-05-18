@@ -16,9 +16,15 @@ export class GmailAdapter implements IPaymentScanner {
     amount: number,
     dateLimit: Date,
   ): Promise<PaymentConfirmation | null> {
-    const afterDate = dateLimit.toISOString().split('T')[0].replace(/-/g, '/');
-    // Búsqueda amplia para Nequi y Bancolombia
-    const query = `(Nequi OR Bancolombia) "${amount.toLocaleString('es-CO')}" after:${afterDate}`;
+    // Formato de fecha para Gmail: YYYY/MM/DD
+    const yyyy = dateLimit.getFullYear();
+    const mm = String(dateLimit.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateLimit.getDate()).padStart(2, '0');
+    const afterDate = `${yyyy}/${mm}/${dd}`;
+    
+    // Búsqueda simplificada para evitar errores de parseo en Gmail
+    // Quitamos las comillas del monto para que sea más flexible
+    const query = `(Nequi OR Bancolombia) ${amount} after:${afterDate}`;
 
     try {
       const response = await this.gmail.users.messages.list({

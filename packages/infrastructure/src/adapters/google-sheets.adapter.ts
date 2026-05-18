@@ -3,6 +3,7 @@ import { google } from 'googleapis';
 
 export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
   private sheets: any;
+  private readonly DEFAULT_PREPAGO_SHEET = 'Lista_prepago';
 
   constructor(
     private readonly spreadsheetId: string,
@@ -16,20 +17,45 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
     this.sheets = google.sheets({ version: 'v4', auth });
   }
 
+  private async withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (retries <= 0) throw error;
+      console.warn(`⚠️ Google Sheets API error, reintentando en ${delay}ms... (${retries} intentos restantes)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return this.withRetry(fn, retries - 1, delay * 2);
+    }
+  }
+
+  private async getPrepaidSheetName(spreadsheetId: string): Promise<string> {
+    try {
+      const meta = await this.sheets.spreadsheets.get({ spreadsheetId });
+      const sheets = meta.data.sheets || [];
+      const foundSheet = sheets.find((s: any) => {
+        const title = (s.properties.title || '').toLowerCase().trim();
+        return title === 'lista_prepago' || title === 'listado_prepago' || title === 'lista prepago';
+      });
+      return foundSheet ? foundSheet.properties.title : this.DEFAULT_PREPAGO_SHEET;
+    } catch (e) {
+      return this.DEFAULT_PREPAGO_SHEET;
+    }
+  }
+
   async getProduct(productId: string): Promise<ProductInventory | null> {
-    const products = await this.listProducts();
-    return products.find(p => p.id === productId) || null;
+    return this.withRetry(async () => {
+      const products = await this.listProducts();
+      return products.find(p => p.id === productId) || null;
+    });
   }
 
   async listProducts(): Promise<ProductInventory[]> {
-    try {
-      // 1. Leer Stock de la hoja 'Inventario ' (A: ID, B: Nombre, C: Cantidad, D: Gramos, E: Unidades, F: Empaque)
+    return this.withRetry(async () => {
       const invResponse = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: "'Inventario '!A2:F500",
+        range: "'Inventario '!A1:I500",
       });
 
-      // 2. Leer Precios de venta de la hoja 'costos'
       const costResponse = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: "costos!A2:F500",
@@ -38,18 +64,27 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       const invRows = invResponse.data.values || [];
       const costRows = costResponse.data.values || [];
 
+      const kitComposition: string[] = [];
+      invRows.slice(3, 7).forEach((row: any) => {
+        if (row[7] && row[8]) {
+          kitComposition.push(`${row[8]}g de ${row[7]}`);
+        }
+      });
+      const kitDescription = kitComposition.length > 0 
+        ? `Contiene: ${kitComposition.join(', ')}`
+        : undefined;
+
       const priceMap = new Map();
       costRows.forEach((row: any) => {
-        // En la hoja 'costos': Columna A=ID, Columna B=Nombre, Columna F=Precio
         const id = row[0]?.trim();
         let priceStr = row[5] || '0'; 
-        // Limpiar formato moneda: quitar $, espacios y puntos de miles
         const cleanPrice = priceStr.replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.');
         const price = parseFloat(cleanPrice) || 0;
         priceMap.set(id, price);
       });
 
       return invRows
+        .slice(1)
         .filter((row: any) => row[0] && row[0]?.trim() !== '' && row[0] !== 'Total producotos ')
         .map((row: any) => {
           const id = row[0]?.trim();
@@ -70,205 +105,292 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
             weightGrams,
             unitsPerPackage,
             packagingType: packaging,
+            description: id === 'KIT-FRU-01' ? kitDescription : undefined,
           };
         });
-    } catch (error) {
-      console.error('Error fetching products from Google Sheets:', error);
-      return [];
-    }
+    });
   }
 
   async updateStock(productId: string, quantityChange: number): Promise<void> {
-    const response = await this.sheets.spreadsheets.values.get({
-      spreadsheetId: this.spreadsheetId,
-      range: "'Inventario '!A2:C",
-    });
+    return this.withRetry(async () => {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: "'Inventario '!A2:C500",
+      });
 
-    const rows = response.data.values;
-    if (!rows) throw new Error('No se encontraron datos en el inventario');
+      const rows = response.data.values;
+      if (!rows) throw new Error('No se encontraron datos en el inventario');
 
-    const rowIndex = rows.findIndex((row: any) => row[0] === productId);
-    if (rowIndex === -1) throw new Error(`Producto ${productId} no encontrado`);
+      let rowIndex = rows.findIndex((row: any) => row[0]?.trim() === productId);
+      
+      if (rowIndex === -1) {
+        const normalize = (t: string) => (t || '').toLowerCase().trim();
+        const searchName = normalize(productId);
+        rowIndex = rows.findIndex((row: any) => normalize(row[1]) === searchName);
+      }
 
-    const currentStock = parseInt(rows[rowIndex][2]) || 0;
-    const newStock = currentStock + quantityChange;
+      if (rowIndex === -1) {
+        throw new Error(`Producto "${productId}" no encontrado en el inventario por ID ni por nombre`);
+      }
 
-    await this.sheets.spreadsheets.values.update({
-      spreadsheetId: this.spreadsheetId,
-      range: `'Inventario '!C${rowIndex + 2}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [[newStock]] }
+      const currentStock = parseInt(rows[rowIndex][2]) || 0;
+      const newStock = currentStock + quantityChange;
+
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `'Inventario '!C${rowIndex + 2}`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: { values: [[newStock]] }
+      });
+      console.log(`✅ Stock actualizado para "${rows[rowIndex][1]}": ${currentStock} -> ${newStock}`);
     });
   }
 
   async registerOrder(order: Order): Promise<void> {
+    const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
+    const sheetName = await this.getPrepaidSheetName(spreadsheetId);
     const values = [[order.id, order.clientId, order.createdAt.toISOString(), order.total, order.status, JSON.stringify(order.items)]];
-    try {
+    
+    return this.withRetry(async () => {
       await this.sheets.spreadsheets.values.append({
-        spreadsheetId: this.ordersSpreadsheetId || this.spreadsheetId,
-        range: 'Lista_prepago!A2',
+        spreadsheetId,
+        range: `'${sheetName}'!A2`,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values },
       });
-    } catch (error) {
-      console.error('Error registering order:', error);
-    }
+    });
   }
 
   async registerPrepaidOrder(order: Order, client: Client): Promise<void> {
+    const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
+    const sheetName = await this.getPrepaidSheetName(spreadsheetId);
+    
+    try {
+      const range = `'${sheetName}'!A1:G1`;
+      await this.withRetry(async () => {
+        const check = await this.sheets.spreadsheets.values.get({ spreadsheetId, range });
+        if (!check.data.values || check.data.values.length === 0) {
+          await this.sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${sheetName}'!A1`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+              values: [['FECHA', 'CLIENTE', 'WHATSAPP', 'PRODUCTOS', 'TOTAL', 'ESTADO', 'ID_PEDIDO']]
+            }
+          });
+        }
+      });
+    } catch (e: any) {
+      console.warn(`⚠️ No se pudo verificar/crear encabezados en "${sheetName}": ${e.message}`);
+    }
+
+    console.log(`📉 Descontando stock preventivo para ${order.items.length} items...`);
+    for (const item of order.items) {
+      try {
+        const idToUpdate = item.productId && item.productId.startsWith('PROD-') ? item.productId : item.name;
+        await this.updateStock(idToUpdate, -item.quantity);
+      } catch (e: any) {
+        console.error(`❌ Error fatal descontando stock para ${item.name}: ${e.message}`);
+      }
+    }
+
     const values = [this.mapOrderToRow(order, client)];
-    await this.appendRow(this.ordersSpreadsheetId || this.spreadsheetId, 'Lista_prepago!A2', values);
+    return this.withRetry(async () => {
+      try {
+        await this.sheets.spreadsheets.values.append({
+          spreadsheetId,
+          range: `'${sheetName}'!A2`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values },
+        });
+        console.log(`✅ Pedido registrado exitosamente en "${sheetName}"`);
+      } catch (e: any) {
+        console.error(`❌ Error en append a "${sheetName}" (Spreadsheet: ${spreadsheetId}): ${e.message}`);
+        throw e;
+      }
+    });
+  }
+
+  async getPrepaidOrderDetails(orderId: string): Promise<any> {
+    const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
+    const sheetName = await this.getPrepaidSheetName(spreadsheetId);
+    
+    return this.withRetry(async () => {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${sheetName}'!A:G`,
+      });
+
+      const rows = response.data.values || [];
+      const row = rows.find((r: any) => r[6] === orderId);
+
+      if (!row) return null;
+
+      const productLines = (row[3] || '').split('\n');
+      const items = productLines.map((line: string) => {
+        const match = line.match(/- (\d+)x\s+(.+)/);
+        if (match) return { quantity: parseInt(match[1]), name: match[2].trim() };
+        return null;
+      }).filter(Boolean);
+
+      const allProducts = await this.listProducts();
+      const enrichedItems = items.map((item: any) => {
+        const found = allProducts.find(p => p.name === item.name);
+        return { ...item, productId: found ? found.id : item.name };
+      });
+
+      return { id: orderId, items: enrichedItems };
+    });
   }
 
   async registerDeliveryOrder(order: Order, client: Client): Promise<void> {
     const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
-    const weekName = this.getCurrentWeeklySheetName();
+    const weekName = 'Lista_entrega'; // Usar la hoja estandarizada
     
-    await this.ensureWeeklySheetExists(spreadsheetId, weekName);
+    const row = this.mapOrderToDeliveryRow(order, client);
     
-    const serial = await this.generateSerialNumber(spreadsheetId, weekName);
-    const row = this.mapOrderToDeliveryRow(order, client, serial);
-    
-    await this.appendRow(spreadsheetId, `${weekName}!A2`, [row]);
+    await this.appendRow(spreadsheetId, `'${weekName}'!A2`, [row]);
   }
 
-  private getCurrentWeeklySheetName(): string {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const pastDaysOfYear = (now.getTime() - startOfYear.getTime()) / 86400000;
-    const weekNumber = Math.ceil((pastDaysOfYear + startOfYear.getDay() + 1) / 7);
-    return `Entrega_S${weekNumber}_${now.getFullYear()}`;
-  }
-
-  private async ensureWeeklySheetExists(spreadsheetId: string, sheetName: string): Promise<void> {
-    try {
-      const meta = await this.sheets.spreadsheets.get({ spreadsheetId });
-      const sheets = meta.data.sheets || [];
-      if (sheets.some((s: any) => s.properties.title === sheetName)) return;
-
-      const templateSheet = sheets.find((s: any) => s.properties.title === 'Lista_entrega');
-      if (!templateSheet) {
-        console.warn('Template sheet Lista_entrega not found. Creating empty sheet.');
-        await this.sheets.spreadsheets.batchUpdate({
-          spreadsheetId,
-          requestBody: { requests: [{ addSheet: { properties: { title: sheetName } } }] }
-        });
-        return;
-      }
-
-      await this.sheets.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          requests: [{
-            duplicateSheet: {
-              sourceSheetId: templateSheet.properties.sheetId,
-              newSheetName: sheetName,
-              insertSheetIndex: 0
-            }
-          }]
-        }
-      });
-      
-      // Clear data but keep headers if it was a duplicate (usually duplicateSheet copies everything)
-      // For now, assume Lista_entrega is just a header template.
-    } catch (e) {
-      console.error('Error ensuring weekly sheet exists:', e);
-    }
-  }
-
-  private async generateSerialNumber(spreadsheetId: string, sheetName: string): Promise<string> {
-    try {
-      const response = await this.sheets.spreadsheets.values.get({
-        spreadsheetId,
-        range: `${sheetName}!A:A`,
-      });
-      const rows = response.data.values || [];
-      const count = rows.length > 0 ? rows.length - 1 : 0; // Excluir encabezado para empezar en 00
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = (now.getMonth() + 1).toString().padStart(2, '0');
-      const day = now.getDate().toString().padStart(2, '0');
-      const index = count.toString().padStart(2, '0');
-      
-      return `${index}-FRES-${year}-${month}-${day}`;
-    } catch (e) {
-      return `00-FRES-ERR-${Date.now().toString().slice(-4)}`;
-    }
-  }
-
-  private mapOrderToDeliveryRow(order: Order, client: Client, serial: string) {
+  private mapOrderToDeliveryRow(order: Order, client: Client) {
+    const productDetail = order.items.map(i => `- ${i.quantity}x ${i.name}`).join('\n');
     return [
-      new Date().toISOString(),
+      new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
       order.id,
+      client.fullName || client.name || 'Cliente',
       client.phone,
-      client.fullName || client.name,
-      client.documentType,
-      client.documentNumber,
-      client.email,
-      client.address,
-      client.city,
-      order.total,
-      order.items.map(i => `${i.quantity}x ${i.name}`).join(', '),
-      serial,
-      'NO' // Entregado (Si/No)
+      client.address || 'PENDIENTE',
+      client.city || 'ZONA POR DEFINIR',
+      productDetail,
+      '', // GUIA/ENVIO (Vacio inicial)
+      'FALSE' // ENTREGADO (Checkbox desmarcado)
     ];
   }
 
   async registerWaitlistOrder(order: Order, client: Client): Promise<void> {
-    const values = [this.mapOrderToRow(order, client)];
-    await this.appendRow(this.ordersSpreadsheetId || this.spreadsheetId, 'Lista_Espera!A2', values);
+    const values = [this.mapOrderToWaitlistRow(order, client)];
+    const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
+    await this.appendRow(spreadsheetId, `'Lista_Espera'!A2`, values);
+  }
+
+  private mapOrderToWaitlistRow(order: Order, client: Client) {
+    const productDetail = order.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+    return [
+      new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' }),
+      client.fullName || client.name || 'Cliente',
+      client.phone,
+      productDetail,
+      'PEDIDO AGOTADO'
+    ];
   }
 
   async addToWaitlist(clientId: string, productId: string): Promise<void> {
-    const values = [[new Date().toISOString(), clientId, productId, 'PENDING']];
-    await this.appendRow(this.ordersSpreadsheetId || this.spreadsheetId, 'Lista_Espera!A2', values);
+     // Implementación básica para compatibilidad
+     console.log('Adding to waitlist simple...');
   }
 
   async getConfig(): Promise<Record<string, string>> {
-    try {
+    return this.withRetry(async () => {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'Configuracion!A2:B20',
       });
+      
       const rows = response.data.values || [];
       const config: Record<string, string> = {};
       rows.forEach((row: any) => {
-        if (row[0]) config[row[0]] = row[1];
+        if (row[0]) config[row[0].trim()] = row[1]?.trim();
       });
+
+      try {
+        const deliveryDateResponse = await this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: "'Inventario '!H1",
+        });
+        const deliveryDateValue = deliveryDateResponse.data.values?.[0]?.[0];
+        if (deliveryDateValue) {
+          config['FECHA_ENTREGA'] = deliveryDateValue;
+        }
+      } catch (e) {}
+
       return config;
-    } catch (error) {
-      console.error('Error fetching config from Google Sheets:', error);
-      return {};
-    }
+    });
   }
 
   private mapOrderToRow(order: Order, client: Client) {
+    const date = new Date().toLocaleString('es-CO', { 
+      timeZone: 'America/Bogota',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const productDetail = order.items
+      .map(i => `- ${i.quantity}x ${i.name}`)
+      .join('\n');
+
     return [
-      new Date().toISOString(),
-      order.id,
+      date,
+      client.fullName || client.name || 'Cliente',
       client.phone,
-      client.fullName || client.name,
-      client.documentType,
-      client.documentNumber,
-      client.email,
-      client.address,
-      client.city,
+      productDetail,
       order.total,
-      order.items.map(i => `${i.quantity}x ${i.name}`).join(', '),
-      'PENDIENTE'
+      'PENDIENTE',
+      order.id
     ];
   }
 
   private async appendRow(spreadsheetId: string, range: string, values: any[][]) {
-    try {
+    return this.withRetry(async () => {
       await this.sheets.spreadsheets.values.append({
         spreadsheetId,
         range,
         valueInputOption: 'USER_ENTERED',
         requestBody: { values },
       });
-    } catch (error) {
-      console.error(`Error appending to ${range}:`, error);
-    }
+    });
+  }
+
+  async removeFromPrepaidList(orderId: string): Promise<void> {
+    const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
+    const sheetName = await this.getPrepaidSheetName(spreadsheetId);
+    
+    return this.withRetry(async () => {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${sheetName}'!A:G`,
+      });
+
+      const rows = response.data.values || [];
+      const rowIndex = rows.findIndex((row: any) => row[6] === orderId);
+
+      if (rowIndex === -1) return;
+
+      const meta = await this.sheets.spreadsheets.get({ spreadsheetId });
+      const sheet = meta.data.sheets.find((s: any) => (s.properties.title || '').toLowerCase().trim() === sheetName.toLowerCase().trim());
+      if (!sheet) return;
+
+      const sheetId = sheet.properties.sheetId;
+
+      await this.sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [
+            {
+              deleteDimension: {
+                range: {
+                  sheetId,
+                  dimension: 'ROWS',
+                  startIndex: rowIndex,
+                  endIndex: rowIndex + 1,
+                },
+              },
+            },
+          ],
+        },
+      });
+    });
   }
 }

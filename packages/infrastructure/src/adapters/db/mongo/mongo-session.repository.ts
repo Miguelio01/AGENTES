@@ -5,6 +5,7 @@ export class MongoSessionRepository implements ISessionRepository {
   constructor(private readonly sessionModel: Model<any>) {}
 
   async save(session: Session): Promise<Session> {
+    console.log(`💾 Guardando sesión ${session.id} (Client: ${session.clientId}). ID Pedido: ${session.metadata?.currentOrderId}`);
     await this.sessionModel.findByIdAndUpdate(
       session.id,
       {
@@ -25,6 +26,7 @@ export class MongoSessionRepository implements ISessionRepository {
           intensity: session.emotionalState.intensity,
           reason: session.emotionalState.reason,
         },
+        metadata: session.metadata,
         lastActivity: session.lastActivity,
       },
       { upsert: true, returnDocument: 'after' }
@@ -35,6 +37,7 @@ export class MongoSessionRepository implements ISessionRepository {
   async findById(id: string): Promise<Session | null> {
     const doc = await this.sessionModel.findById(id);
     if (!doc) return null;
+    // console.log(`📖 Sesión cargada ${id}. ID Pedido en metadata: ${doc.metadata?.currentOrderId}`);
     return new Session({
       id: doc._id,
       clientId: doc.clientId,
@@ -47,6 +50,7 @@ export class MongoSessionRepository implements ISessionRepository {
         doc.emotionalState.intensity,
         doc.emotionalState.reason
       ),
+      metadata: doc.metadata,
       lastActivity: doc.lastActivity,
     });
   }
@@ -54,6 +58,7 @@ export class MongoSessionRepository implements ISessionRepository {
   async findActiveByClientId(clientId: string): Promise<Session | null> {
     const doc = await this.sessionModel.findOne({ clientId, status: 'active' });
     if (!doc) return null;
+    console.log(`📖 Sesión activa cargada para ${clientId}. ID Pedido: ${doc.metadata?.currentOrderId}`);
     return new Session({
       id: doc._id,
       clientId: doc.clientId,
@@ -66,6 +71,7 @@ export class MongoSessionRepository implements ISessionRepository {
         doc.emotionalState.intensity,
         doc.emotionalState.reason
       ),
+      metadata: doc.metadata,
       lastActivity: doc.lastActivity,
     });
   }
@@ -85,6 +91,7 @@ export class MongoSessionRepository implements ISessionRepository {
         doc.emotionalState.intensity,
         doc.emotionalState.reason
       ),
+      metadata: doc.metadata,
       lastActivity: doc.lastActivity,
     });
   }
@@ -103,6 +110,7 @@ export class MongoSessionRepository implements ISessionRepository {
         doc.emotionalState.intensity,
         doc.emotionalState.reason
       ),
+      metadata: doc.metadata,
       lastActivity: doc.lastActivity,
     }));
   }

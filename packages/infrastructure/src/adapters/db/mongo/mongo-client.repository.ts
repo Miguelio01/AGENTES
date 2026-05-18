@@ -10,6 +10,7 @@ export class MongoClientRepository implements IClientRepository {
       {
         name: client.name,
         phone: client.phone,
+        lid: client.lid,
         fullName: client.fullName,
         documentType: client.documentType,
         documentNumber: client.documentNumber,
@@ -32,6 +33,7 @@ export class MongoClientRepository implements IClientRepository {
       id: doc._id,
       name: doc.name,
       phone: doc.phone || doc._id.split('@')[0],
+      lid: doc.lid,
       fullName: doc.fullName,
       documentType: doc.documentType,
       documentNumber: doc.documentNumber,
@@ -50,6 +52,7 @@ export class MongoClientRepository implements IClientRepository {
       id: doc._id,
       name: doc.name,
       phone: doc.phone || doc._id.split('@')[0],
+      lid: doc.lid,
       fullName: doc.fullName,
       documentType: doc.documentType,
       documentNumber: doc.documentNumber,

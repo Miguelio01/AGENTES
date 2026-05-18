@@ -32,13 +32,17 @@ export class LlmEmotionAnalyzerAdapter implements IEmotionAnalyzer {
 
       const responseContent = response.content;
 
-      // Limpiar la respuesta por si el LLM incluye markdown o texto extra
-      const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
+      // Limpiar la respuesta de bloques de código markdown y otros ruidos
+      let jsonStr = responseContent.replace(/```json/g, '').replace(/```/g, '').trim();
+      
+      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No valid JSON found in LLM response');
       }
 
-      const data = JSON.parse(jsonMatch[0]);
+      // Reemplazar saltos de línea dentro de los valores de string para evitar errores de parseo
+      const sanitizedJson = jsonMatch[0].replace(/\n/g, ' ');
+      const data = JSON.parse(sanitizedJson);
       
       return new EmotionalState(
         data.emotion as Emotion,

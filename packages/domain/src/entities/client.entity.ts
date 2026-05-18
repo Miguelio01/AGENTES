@@ -14,6 +14,7 @@ export interface ClientProps {
   id: string; // WhatsApp number or ID
   name: string; // From WhatsApp profile
   phone: string;
+  lid?: string; // Technical WhatsApp ID (LID)
   fullName?: string; // Real full name
   documentType?: 'CC' | 'NIT' | 'CE' | 'PP' | 'DUMMY';
   documentNumber?: string;
@@ -38,6 +39,7 @@ export class Client {
   get id(): string { return this.props.id; }
   get name(): string { return this.props.name; }
   get phone(): string { return this.props.phone; }
+  get lid(): string | undefined { return this.props.lid; }
   get fullName(): string | undefined { return this.props.fullName; }
   get documentType(): string | undefined { return this.props.documentType; }
   get documentNumber(): string | undefined { return this.props.documentNumber; }
@@ -48,11 +50,12 @@ export class Client {
   get metadata(): Record<string, any> | undefined { return this.props.metadata; }
   get createdAt(): Date { return this.props.createdAt; }
 
-  static create(id: string, name: string, phone: string): Client {
+  static create(id: string, name: string, phone: string, lid?: string): Client {
     return new Client({
       id,
       name,
       phone,
+      lid,
       createdAt: new Date(),
     });
   }
@@ -61,7 +64,7 @@ export class Client {
     this.props.name = name;
   }
 
-  updateProfile(data: Partial<Pick<ClientProps, 'fullName' | 'documentType' | 'documentNumber' | 'email' | 'address' | 'city' | 'registrationSource'>>): void {
+  updateProfile(data: Partial<Pick<ClientProps, 'fullName' | 'documentType' | 'documentNumber' | 'email' | 'address' | 'city' | 'registrationSource' | 'lid'>>): void {
     Object.assign(this.props, data);
   }
 }

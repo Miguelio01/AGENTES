@@ -20,7 +20,14 @@ export class SessionsService {
   }
 
   async findActiveByClientId(clientId: string): Promise<Session | null> {
-    const session = await this.sessionRepository.findActiveByClientId(clientId);
+    // 1. Intentar por ID directo (LID o Phone)
+    let session = await this.sessionRepository.findActiveByClientId(clientId);
+
+    // 2. Si no hay, y el ID parece un LID, intentar buscar por el teléfono si logramos extraerlo
+    if (!session && clientId.includes('@')) {
+       const phone = clientId.split('@')[0];
+       session = await this.sessionRepository.findActiveByClientId(phone);
+    }
 
     if (session) {
       const now = new Date();
@@ -28,7 +35,6 @@ export class SessionsService {
       const diffMinutes = diffMs / (1000 * 60);
 
       if (diffMinutes > this.SESSION_TIMEOUT_MINUTES) {
-        // La sesión ha expirado, la cerramos
         session.close();
         await this.sessionRepository.save(session);
         return null;

@@ -20,4 +20,5 @@ export const SessionSchema = new Schema({
     reason: { type: String },
   },
   lastActivity: { type: Date, required: true },
+  metadata: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
