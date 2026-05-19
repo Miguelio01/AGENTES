@@ -35,6 +35,15 @@ coverage/
 apps/gateway/sessions/
 .worktrees/
 
+# Secrets and Credentials (CRITICAL)
+google-credentials.json
+apps/gateway/google-credentials.json
+*.json
+!package.json
+!tsconfig.json
+!turbo.json
+!nest-cli.json
+
 # Drafts and temporary scripts
 .borradores/
 
