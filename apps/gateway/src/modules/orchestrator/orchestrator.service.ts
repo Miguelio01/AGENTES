@@ -218,6 +218,7 @@ export class OrchestratorService {
       session.metadata = session.metadata || {};
       session.metadata.currentOrderItems = [];
       session.metadata.currentOrderId = null;
+      session.metadata.registeredInPrepago = false; // Reset de la bandera
       await this.sessionsService.update(session);
     }
 
@@ -352,25 +353,31 @@ export class OrchestratorService {
 
         // REGISTRO AUTOMÁTICO EN PREPAGO SI ES CATÁLOGO (Omitir confirmación manual)
         if (isCatalogOrder && (itemsToDisplay.length > 0 || message.metadata?.orderItems)) {
-          this.logger.log(`✅ Registrando pedido de catálogo automáticamente en lista de prepago para ${client.name} con ID: ${orderId}`);
+          // EVITAR DUPLICADOS: Solo registrar si no ha sido registrado ya en esta sesión
+          if (!session.metadata?.registeredInPrepago) {
+            this.logger.log(`✅ Registrando pedido de catálogo automáticamente en lista de prepago para ${client.name} con ID: ${orderId}`);
 
-          const finalItems = itemsToDisplay.length > 0 ? itemsToDisplay : message.metadata?.orderItems;
-          try {
-            await this.salesAgent.handleRequest({
-              from: 'fresquitoh-orchestrator',
-              to: 'fulfillment-agent' as any,
-              action: 'register_prepaid',
-              context: { clientId: client.id, orderId },
-              data: { items: finalItems },
-            });
-            // Mensaje limpio y directo
-            paymentMsg += `✅ *Pedido registrado con éxito (ID: ${orderId}).*\n\n`;
-            
-            // LIMPIEZA POST-REGISTRO: Borrar items del carrito para que el próximo mensaje no los duplique
-            session.metadata.currentOrderItems = [];
-            await this.sessionsService.update(session);
-          } catch (e: any) {
-            this.logger.error(`❌ Error en registro automático de catálogo: ${e.message}`);
+            const finalItems = itemsToDisplay.length > 0 ? itemsToDisplay : message.metadata?.orderItems;
+            try {
+              await this.salesAgent.handleRequest({
+                from: 'fresquitoh-orchestrator',
+                to: 'fulfillment-agent' as any,
+                action: 'register_prepaid',
+                context: { clientId: client.id, orderId },
+                data: { items: finalItems },
+              });
+              // Mensaje limpio y directo
+              paymentMsg += `✅ *Pedido registrado con éxito (ID: ${orderId}).*\n\n`;
+              
+              // BANDERA DE CONTROL: Marcar como registrado en lugar de borrar los items
+              session.metadata.registeredInPrepago = true;
+              await this.sessionsService.update(session);
+            } catch (e: any) {
+              this.logger.error(`❌ Error en registro automático de catálogo: ${e.message}`);
+            }
+          } else {
+            this.logger.log(`ℹ️ El pedido ${orderId} ya estaba registrado en prepago. Omitiendo duplicado.`);
+            paymentMsg += `✅ *Su pedido (ID: ${orderId}) sigue en proceso de validación.*\n\n`;
           }
         }
         paymentMsg += `🏦 *MEDIOS DE PAGO:*\n`;
