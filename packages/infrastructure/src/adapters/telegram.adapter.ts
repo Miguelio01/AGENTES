@@ -37,14 +37,29 @@ export class TelegramAdapter implements IChannel {
   }
 
   async send(message: Message, recipientId: string): Promise<void> {
-    if (message.metadata?.media) {
-      await this.bot.telegram.sendPhoto(recipientId, { source: message.metadata.media }, {
-        caption: message.content,
-        parse_mode: 'Markdown'
-      });
-    } else {
-      await this.bot.telegram.sendMessage(recipientId, message.content, { parse_mode: 'Markdown' });
-    }
+    const execute = async (retries = 3): Promise<void> => {
+      try {
+        if (message.metadata?.media) {
+          await this.bot.telegram.sendPhoto(recipientId, { source: message.metadata.media }, {
+            caption: message.content,
+            parse_mode: 'Markdown'
+          });
+        } else {
+          await this.bot.telegram.sendMessage(recipientId, message.content, { parse_mode: 'Markdown' });
+        }
+      } catch (error: any) {
+        if (error.response?.error_code === 429 && retries > 0) {
+          const retryAfterSeconds = error.response?.parameters?.retry_after || 5;
+          const retryAfterMs = (retryAfterSeconds + 2) * 1000;
+          console.warn(`⚠️ Telegram rate limit (429): retry after ${retryAfterSeconds}s. Waiting ${retryAfterMs}ms... (${retries} retries left)`);
+          await new Promise(resolve => setTimeout(resolve, retryAfterMs));
+          return execute(retries - 1);
+        }
+        throw error;
+      }
+    };
+
+    return execute();
   }
 
   async stop(): Promise<void> {

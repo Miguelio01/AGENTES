@@ -53,14 +53,24 @@ export class OrchestratorService {
 
     await presenceCallback(true);
 
-    // MEJORA: Captura de Identidad Dual (Celular + LID técnico)
+    // MEJORA: Búsqueda de Identidad Unificada (Celular + LID técnico)
     const metadata = message.metadata || {};
     const pushName = metadata.pushName || '';
     const cleanPhone = metadata.phone || senderId.split('@')[0].replace(/[^0-9]/g, '');
-    const currentLid = senderId.includes('@lid') ? senderId.split(' ')[0].trim() : undefined;
-    const clientId = cleanPhone;
+    const currentLid = metadata.lid || (senderId.includes('@lid') ? senderId.split(' ')[0].trim() : undefined);
+    
+    // Intentar encontrar al cliente por LID primero, luego por Teléfono
+    let client: Client | null = null;
+    if (currentLid) {
+      client = await this.clientsService.findByLid(currentLid);
+    }
+    if (!client && cleanPhone) {
+      client = await this.clientsService.findByPhone(cleanPhone);
+    }
+    if (!client) {
+      client = await this.clientsService.findOne(cleanPhone);
+    }
 
-    let client = await this.clientsService.findOne(clientId);
     const genericNames = [
       'Cliente Nuevo',
       'Usuario WhatsApp',
@@ -72,7 +82,10 @@ export class OrchestratorService {
       const initialName = genericNames.includes(pushName)
         ? 'Cliente Nuevo'
         : pushName;
-      client = Client.create(clientId, initialName, cleanPhone, currentLid);
+      // Usamos el teléfono como ID primario si lo tenemos, si no el LID prefix
+      const primaryId = cleanPhone || (currentLid ? currentLid.split('@')[0] : senderId.split('@')[0]);
+      client = Client.create(primaryId, initialName, cleanPhone, currentLid);
+      
       if (message.content.includes('Vengo de su página de enlaces')) {
         client.updateProfile({ registrationSource: 'LINK_PAGE' });
       }
@@ -81,10 +94,15 @@ export class OrchestratorService {
         `👤 Nuevo cliente registrado: ${initialName} (${cleanPhone}) | LID: ${currentLid || 'N/A'}`,
       );
     } else {
-      // Actualizar LID o Teléfono si no estaban presentes
+      // Actualizar LID o Teléfono si no estaban presentes para vincular identidades
       let needsUpdate = false;
       if (currentLid && client.lid !== currentLid) {
         client.updateProfile({ lid: currentLid });
+        needsUpdate = true;
+      }
+      if (cleanPhone && client.phone !== cleanPhone && !client.phone.includes('@lid')) {
+        // Solo actualizar si el teléfono guardado era un LID prefix y ahora tenemos el real
+        client.updateProfile({ phone: cleanPhone });
         needsUpdate = true;
       }
       
@@ -94,18 +112,14 @@ export class OrchestratorService {
         client.updateName(pushName);
         needsUpdate = true;
       }
-      if (
-        !client.registrationSource &&
-        message.content.includes('Vengo de su página de enlaces')
-      ) {
-        client.updateProfile({ registrationSource: 'LINK_PAGE' });
-        needsUpdate = true;
-      }
-
+      
       if (needsUpdate) {
         await this.clientsService.create(client);
+        this.logger.log(`🔄 Identidad de cliente actualizada: ${client.name} (${client.phone})`);
       }
     }
+
+    const clientId = client.id;
 
     let emotion = EmotionalState.neutral();
     try {
@@ -218,6 +232,7 @@ export class OrchestratorService {
       session.metadata = session.metadata || {};
       session.metadata.currentOrderItems = [];
       session.metadata.currentOrderId = null;
+      session.metadata.registeredInPrepago = false; // Reset de la bandera
       await this.sessionsService.update(session);
     }
 
@@ -352,25 +367,31 @@ export class OrchestratorService {
 
         // REGISTRO AUTOMÁTICO EN PREPAGO SI ES CATÁLOGO (Omitir confirmación manual)
         if (isCatalogOrder && (itemsToDisplay.length > 0 || message.metadata?.orderItems)) {
-          this.logger.log(`✅ Registrando pedido de catálogo automáticamente en lista de prepago para ${client.name} con ID: ${orderId}`);
+          // EVITAR DUPLICADOS: Solo registrar si no ha sido registrado ya en esta sesión
+          if (!session.metadata?.registeredInPrepago) {
+            this.logger.log(`✅ Registrando pedido de catálogo automáticamente en lista de prepago para ${client.name} con ID: ${orderId}`);
 
-          const finalItems = itemsToDisplay.length > 0 ? itemsToDisplay : message.metadata?.orderItems;
-          try {
-            await this.salesAgent.handleRequest({
-              from: 'fresquitoh-orchestrator',
-              to: 'fulfillment-agent' as any,
-              action: 'register_prepaid',
-              context: { clientId: client.id, orderId },
-              data: { items: finalItems },
-            });
-            // Mensaje limpio y directo
-            paymentMsg += `✅ *Pedido registrado con éxito (ID: ${orderId}).*\n\n`;
-            
-            // LIMPIEZA POST-REGISTRO: Borrar items del carrito para que el próximo mensaje no los duplique
-            session.metadata.currentOrderItems = [];
-            await this.sessionsService.update(session);
-          } catch (e: any) {
-            this.logger.error(`❌ Error en registro automático de catálogo: ${e.message}`);
+            const finalItems = itemsToDisplay.length > 0 ? itemsToDisplay : message.metadata?.orderItems;
+            try {
+              await this.salesAgent.handleRequest({
+                from: 'fresquitoh-orchestrator',
+                to: 'fulfillment-agent' as any,
+                action: 'register_prepaid',
+                context: { clientId: client.id, orderId },
+                data: { items: finalItems },
+              });
+              // Mensaje limpio y directo
+              paymentMsg += `✅ *Pedido registrado con éxito (ID: ${orderId}).*\n\n`;
+              
+              // BANDERA DE CONTROL: Marcar como registrado en lugar de borrar los items
+              session.metadata.registeredInPrepago = true;
+              await this.sessionsService.update(session);
+            } catch (e: any) {
+              this.logger.error(`❌ Error en registro automático de catálogo: ${e.message}`);
+            }
+          } else {
+            this.logger.log(`ℹ️ El pedido ${orderId} ya estaba registrado en prepago. Omitiendo duplicado.`);
+            paymentMsg += `✅ *Su pedido (ID: ${orderId}) sigue en proceso de validación.*\n\n`;
           }
         }
         paymentMsg += `🏦 *MEDIOS DE PAGO:*\n`;

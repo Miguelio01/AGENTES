@@ -226,6 +226,9 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
 
       if (!row) return null;
 
+      // Columna 3 (index 2) es WHATSAPP (clientId)
+      const clientId = row[2] ? row[2].replace(/[^0-9]/g, '') : null;
+
       const productLines = (row[3] || '').split('\n');
       const items = productLines.map((line: string) => {
         const match = line.match(/- (\d+)x\s+(.+)/);
@@ -239,7 +242,7 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
         return { ...item, productId: found ? found.id : item.name };
       });
 
-      return { id: orderId, items: enrichedItems };
+      return { id: orderId, clientId, items: enrichedItems };
     });
   }
 

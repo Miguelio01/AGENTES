@@ -22,14 +22,25 @@ export class GmailAdapter implements IPaymentScanner {
     const dd = String(dateLimit.getDate()).padStart(2, '0');
     const afterDate = `${yyyy}/${mm}/${dd}`;
     
-    // Búsqueda simplificada para evitar errores de parseo en Gmail
-    // Quitamos las comillas del monto para que sea más flexible
-    const query = `(Nequi OR Bancolombia) ${amount} after:${afterDate}`;
+    // Búsqueda simplificada: Gmail a veces falla con formatos complejos de monto o fecha
+    // Probamos con un formato muy estándar: (Termino1 OR Termino2) Monto
+    const query = `(${amount}) after:${afterDate}`;
 
     try {
+      if (!this.credentials || !this.credentials.private_key) {
+        console.warn('⚠️ Gmail credentials incomplete, skipping scan.');
+        return null;
+      }
+
       const response = await this.gmail.users.messages.list({
-        userId: 'me',
+        userId: 'me', // Esto asume que la cuenta de servicio tiene delegación o el usuario es 'me'
         q: query,
+      }).catch((err: any) => {
+        // Capturar error de precondición (común si la cuenta de servicio no tiene buzón)
+        if (err.message.includes('Precondition check failed')) {
+           throw new Error('La cuenta de servicio de Google no tiene acceso a un buzón de Gmail. Verifique la configuración de delegación de dominio.');
+        }
+        throw err;
       });
 
       if (!response.data.messages || response.data.messages.length === 0) {

@@ -44,7 +44,7 @@ export class OrderSaga {
     // 1. Notificar al Admin (Siempre se hace por seguridad y visibilidad)
     if (adminId) {
       const adminMessage = Message.create({
-        content: `📸 *NUEVO COMPROBANTE DE PAGO*\n\n*Cliente:* ${clientName} (${event.clientId})\n*Pedido:* ${event.orderId}\n*Monto esperado:* $${total.toLocaleString('es-CO')}\n\nResponde con: \`/aprobado ${event.orderId}\` si la validación automática no ocurre.`,
+        content: `📸 *NUEVO COMPROBANTE DE PAGO*\n\n*Cliente:* ${clientName} (${event.clientId})\n*Pedido:* ${event.orderId}\n*Monto esperado:* $${total.toLocaleString('es-CO')}\n\nResponde con: \`/aprobado ${event.orderId} ${event.clientId}\` si la validación automática no ocurre.`,
         role: 'assistant',
         channel: 'telegram',
         metadata: { media: event.mediaBuffer },
@@ -84,11 +84,29 @@ export class OrderSaga {
       `🚀 Saga: Order ${event.orderId} approved. Validating client data...`,
     );
 
-    const clientId = event.clientId || '573042450082'; 
+    // MEJORA: Si no tenemos el clientId, lo buscamos en el Excel proactivamente
+    let clientId = event.clientId;
+    let items = [];
+    
+    try {
+      const details = await this.inventoryProvider.getPrepaidOrderDetails(event.orderId);
+      if (details) {
+        clientId = clientId || details.clientId;
+        items = details.items || [];
+      }
+    } catch (e: any) {
+      this.logger.warn(`⚠️ No se pudieron recuperar detalles del Excel para ${event.orderId}: ${e.message}`);
+    }
+
+    if (!clientId) {
+      this.logger.error(`❌ No se pudo determinar el Cliente para el pedido ${event.orderId}`);
+      return;
+    }
+
     const client = await this.clientsService.findOne(clientId);
 
     if (!client) {
-      this.logger.error(`❌ Cliente ${clientId} no encontrado para aprobación`);
+      this.logger.error(`❌ Cliente ${clientId} no encontrado en la base de datos para aprobación`);
       return;
     }
 
