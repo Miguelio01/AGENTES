@@ -29,10 +29,31 @@ export class MongoClientRepository implements IClientRepository {
   async findById(id: string): Promise<Client | null> {
     const doc = await this.clientModel.findById(id);
     if (!doc) return null;
+    return this.mapToDomain(doc);
+  }
+
+  async findByPhone(phone: string): Promise<Client | null> {
+    const doc = await this.clientModel.findOne({ phone });
+    if (!doc) return null;
+    return this.mapToDomain(doc);
+  }
+
+  async findByLid(lid: string): Promise<Client | null> {
+    const doc = await this.clientModel.findOne({ lid });
+    if (!doc) return null;
+    return this.mapToDomain(doc);
+  }
+
+  async findAll(): Promise<Client[]> {
+    const docs = await this.clientModel.find();
+    return docs.map(doc => this.mapToDomain(doc));
+  }
+
+  private mapToDomain(doc: any): Client {
     return new Client({
       id: doc._id,
       name: doc.name,
-      phone: doc.phone || doc._id.split('@')[0],
+      phone: doc.phone,
       lid: doc.lid,
       fullName: doc.fullName,
       documentType: doc.documentType,
@@ -44,24 +65,5 @@ export class MongoClientRepository implements IClientRepository {
       metadata: doc.metadata,
       createdAt: doc.createdAt,
     });
-  }
-
-  async findAll(): Promise<Client[]> {
-    const docs = await this.clientModel.find();
-    return docs.map(doc => new Client({
-      id: doc._id,
-      name: doc.name,
-      phone: doc.phone || doc._id.split('@')[0],
-      lid: doc.lid,
-      fullName: doc.fullName,
-      documentType: doc.documentType,
-      documentNumber: doc.documentNumber,
-      email: doc.email,
-      address: doc.address,
-      city: doc.city,
-      registrationSource: doc.registrationSource,
-      metadata: doc.metadata,
-      createdAt: doc.createdAt,
-    }));
   }
 }

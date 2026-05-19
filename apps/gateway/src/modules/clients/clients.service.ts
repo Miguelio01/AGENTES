@@ -16,4 +16,12 @@ export class ClientsService {
   async findOne(id: string): Promise<Client | null> {
     return this.clientRepository.findById(id);
   }
+
+  async findByPhone(phone: string): Promise<Client | null> {
+    return this.clientRepository.findByPhone(phone);
+  }
+
+  async findByLid(lid: string): Promise<Client | null> {
+    return this.clientRepository.findByLid(lid);
+  }
 }

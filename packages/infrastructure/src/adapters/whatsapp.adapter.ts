@@ -112,12 +112,15 @@ export class WhatsAppAdapter implements IChannel {
       for (const m of messages) {
         if (!m.message || m.key.fromMe) continue;
 
-        const remoteJid = m.key.remoteJid || '';
+        // LIMPIEZA TOTAL: Baileys manda espacios en los JIDs a veces ('... @lid')
+        const remoteJid = (m.key.remoteJid || '').replace(/\s+/g, ''); 
         let realPhone = remoteJid.split('@')[0];
         let detectedLid = remoteJid.includes('@lid') ? remoteJid.split('@')[0] : undefined;
         
         if (remoteJid.includes('@lid')) {
-           const alternativeJid = m.key.participant || m.participant || m.remoteJidAlt;
+           // RESCATE DE IDENTIDAD: Baileys pone el JID real en remoteJidAlt según el volcado
+           const alternativeJid = (m.key.remoteJidAlt || m.key.participant || m.participant || '').toString().replace(/\s+/g, '');
+           
            if (alternativeJid && alternativeJid.includes('@s.whatsapp.net')) {
               realPhone = alternativeJid.split('@')[0];
               console.log(`🛡️ Rescate de Identidad: LID ${detectedLid} -> Teléfono Real ${realPhone}`);

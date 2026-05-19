@@ -13,6 +13,35 @@ export interface ProductInventory {
   description?: string;
 }
 
+export interface InventoryCheckData {
+  items: Array<{
+    product: string;
+    quantity: number;
+    unit?: string;
+  }>;
+  // Compatibilidad con lógica anterior
+  productName?: string;
+  requestedQuantity?: number;
+}
+
+export interface InventoryCheckResult {
+  available: boolean;
+  items?: Array<{
+    product: string;
+    requested: number;
+    available: number;
+    status: 'OK' | 'OUT_OF_STOCK' | 'PARTIAL';
+  }>;
+  // Compatibilidad con lógica anterior
+  productName?: string;
+  unitsNeeded?: number;
+  presentation?: string;
+  currentStock?: number;
+  pricePerUnit?: number;
+  totalPrice?: number;
+  currency?: string;
+}
+
 export interface IInventoryProvider {
   /**
    * Obtiene la información de un producto desde Google Sheets

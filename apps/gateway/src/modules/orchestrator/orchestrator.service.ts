@@ -53,14 +53,24 @@ export class OrchestratorService {
 
     await presenceCallback(true);
 
-    // MEJORA: Captura de Identidad Dual (Celular + LID técnico)
+    // MEJORA: Búsqueda de Identidad Unificada (Celular + LID técnico)
     const metadata = message.metadata || {};
     const pushName = metadata.pushName || '';
     const cleanPhone = metadata.phone || senderId.split('@')[0].replace(/[^0-9]/g, '');
-    const currentLid = senderId.includes('@lid') ? senderId.split(' ')[0].trim() : undefined;
-    const clientId = cleanPhone;
+    const currentLid = metadata.lid || (senderId.includes('@lid') ? senderId.split(' ')[0].trim() : undefined);
+    
+    // Intentar encontrar al cliente por LID primero, luego por Teléfono
+    let client: Client | null = null;
+    if (currentLid) {
+      client = await this.clientsService.findByLid(currentLid);
+    }
+    if (!client && cleanPhone) {
+      client = await this.clientsService.findByPhone(cleanPhone);
+    }
+    if (!client) {
+      client = await this.clientsService.findOne(cleanPhone);
+    }
 
-    let client = await this.clientsService.findOne(clientId);
     const genericNames = [
       'Cliente Nuevo',
       'Usuario WhatsApp',
@@ -72,7 +82,10 @@ export class OrchestratorService {
       const initialName = genericNames.includes(pushName)
         ? 'Cliente Nuevo'
         : pushName;
-      client = Client.create(clientId, initialName, cleanPhone, currentLid);
+      // Usamos el teléfono como ID primario si lo tenemos, si no el LID prefix
+      const primaryId = cleanPhone || (currentLid ? currentLid.split('@')[0] : senderId.split('@')[0]);
+      client = Client.create(primaryId, initialName, cleanPhone, currentLid);
+      
       if (message.content.includes('Vengo de su página de enlaces')) {
         client.updateProfile({ registrationSource: 'LINK_PAGE' });
       }
@@ -81,10 +94,15 @@ export class OrchestratorService {
         `👤 Nuevo cliente registrado: ${initialName} (${cleanPhone}) | LID: ${currentLid || 'N/A'}`,
       );
     } else {
-      // Actualizar LID o Teléfono si no estaban presentes
+      // Actualizar LID o Teléfono si no estaban presentes para vincular identidades
       let needsUpdate = false;
       if (currentLid && client.lid !== currentLid) {
         client.updateProfile({ lid: currentLid });
+        needsUpdate = true;
+      }
+      if (cleanPhone && client.phone !== cleanPhone && !client.phone.includes('@lid')) {
+        // Solo actualizar si el teléfono guardado era un LID prefix y ahora tenemos el real
+        client.updateProfile({ phone: cleanPhone });
         needsUpdate = true;
       }
       
@@ -94,18 +112,14 @@ export class OrchestratorService {
         client.updateName(pushName);
         needsUpdate = true;
       }
-      if (
-        !client.registrationSource &&
-        message.content.includes('Vengo de su página de enlaces')
-      ) {
-        client.updateProfile({ registrationSource: 'LINK_PAGE' });
-        needsUpdate = true;
-      }
-
+      
       if (needsUpdate) {
         await this.clientsService.create(client);
+        this.logger.log(`🔄 Identidad de cliente actualizada: ${client.name} (${client.phone})`);
       }
     }
+
+    const clientId = client.id;
 
     let emotion = EmotionalState.neutral();
     try {
