@@ -220,7 +220,10 @@ export class SalesAgentService {
         results.push({
           ...invResponse.data,
           product: invResponse.data.productName,
-          quantity: invResponse.data.unitsNeeded
+          quantity: invResponse.status === 'PARTIAL_STOCK' ? invResponse.data.availableQuantity : invResponse.data.unitsNeeded,
+          originalRequestedQuantity: invResponse.data.unitsNeeded,
+          isPartial: invResponse.status === 'PARTIAL_STOCK',
+          isWaitlist: invResponse.status === 'WAITLIST'
         });
       }
     }
@@ -253,6 +256,9 @@ export class SalesAgentService {
       };
     }
 
+    // Si hay items parciales o en lista de espera, marcamos la fase para que la Voz lo sepa
+    const hasIssues = validItems.some(i => i.isPartial || i.isWaitlist);
+
     return {
       from: 'fulfillment-agent' as any,
       to: request.from,
@@ -260,6 +266,7 @@ export class SalesAgentService {
       data: {
         phase: 'LISTING',
         items: validItems,
+        hasStockIssues: hasIssues,
         message:
           'Por favor confirme si el pedido es correcto para proceder con el cobro.',
       },
@@ -298,7 +305,10 @@ export class SalesAgentService {
         results.push({
           ...invResponse.data,
           product: invResponse.data.productName,
-          quantity: invResponse.data.unitsNeeded
+          quantity: invResponse.status === 'PARTIAL_STOCK' ? invResponse.data.availableQuantity : invResponse.data.unitsNeeded,
+          originalRequestedQuantity: invResponse.data.unitsNeeded,
+          isPartial: invResponse.status === 'PARTIAL_STOCK',
+          isWaitlist: invResponse.status === 'WAITLIST'
         });
       } else {
         this.logger.warn(`❌ No se pudo obtener precio para item: ${item.product || item.productName}`);
@@ -318,6 +328,7 @@ export class SalesAgentService {
       0,
     );
     const total = subtotal + deliveryFee;
+    const hasIssues = results.some(i => i.isPartial || i.isWaitlist);
 
     return {
       from: 'fulfillment-agent' as any,
@@ -330,6 +341,7 @@ export class SalesAgentService {
         deliveryFee,
         deliveryDate,
         total,
+        hasStockIssues: hasIssues,
         currency: 'COP',
         paymentMethods: [
           { name: 'Nequi', account: '312 456 7890' }, 

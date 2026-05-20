@@ -248,11 +248,45 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
 
   async registerDeliveryOrder(order: Order, client: Client): Promise<void> {
     const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
-    const weekName = 'Lista_entrega'; // Usar la hoja estandarizada
+    const sheetName = await this.getDeliverySheetName(spreadsheetId);
+    
+    console.log(`🚚 Registrando entrega en hoja: "${sheetName}" (Spreadsheet: ${spreadsheetId})`);
     
     const row = this.mapOrderToDeliveryRow(order, client);
     
-    await this.appendRow(spreadsheetId, `'${weekName}'!A2`, [row]);
+    try {
+      await this.appendRow(spreadsheetId, `'${sheetName}'!A2`, [row]);
+      console.log(`✅ Entrega registrada exitosamente en "${sheetName}"`);
+    } catch (e: any) {
+      console.error(`❌ Error registrando entrega en "${sheetName}": ${e.message}`);
+      throw e;
+    }
+  }
+
+  private async getDeliverySheetName(spreadsheetId: string): Promise<string> {
+    try {
+      const meta = await this.sheets.spreadsheets.get({ spreadsheetId });
+      const sheets = meta.data.sheets || [];
+      
+      const foundSheet = sheets.find((s: any) => {
+        const title = (s.properties.title || '').toLowerCase().trim();
+        return (
+          title === 'lista_entrega' || 
+          title === 'listado_entrega' || 
+          title === 'lista entrega' || 
+          title === 'listado entrega' ||
+          title === 'entrega' ||
+          title === 'entregas'
+        );
+      });
+
+      if (foundSheet) return foundSheet.properties.title;
+      
+      console.warn('⚠️ No se encontró una hoja de entregas válida. Usando "Lista_entrega" por defecto.');
+      return 'Lista_entrega';
+    } catch (e) {
+      return 'Lista_entrega';
+    }
   }
 
   private mapOrderToDeliveryRow(order: Order, client: Client) {
@@ -305,6 +339,7 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
         if (row[0]) config[row[0].trim()] = row[1]?.trim();
       });
 
+      // Leer Fecha de Entrega Dinámica desde Inventario!H1 si existe
       try {
         const deliveryDateResponse = await this.sheets.spreadsheets.values.get({
           spreadsheetId: this.spreadsheetId,
@@ -312,7 +347,7 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
         });
         const deliveryDateValue = deliveryDateResponse.data.values?.[0]?.[0];
         if (deliveryDateValue) {
-          config['FECHA_ENTREGA'] = deliveryDateValue;
+          config['FECHA_ENTREGA_EXACTA'] = deliveryDateValue;
         }
       } catch (e) {}
 

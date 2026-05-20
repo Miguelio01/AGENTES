@@ -11,6 +11,7 @@ import { ClientsModule } from './modules/clients/clients.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ChannelsModule } from './modules/channels/channels.module';
 import { AiModule } from './modules/ai/ai.module';
+import { MetricsModule } from './modules/metrics/metrics.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
 import { FinanceModule } from './modules/finance/finance.module';
 
@@ -34,6 +35,7 @@ import { FinanceModule } from './modules/finance/finance.module';
     OrdersModule,
     ChannelsModule,
     AiModule,
+    MetricsModule,
     OrchestratorModule,
     FinanceModule,
   ],

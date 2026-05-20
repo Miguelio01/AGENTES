@@ -25,9 +25,16 @@ export class GeminiProvider implements ILLMProvider {
     const lastMessage = messages[messages.length - 1].content;
     const result = await chat.sendMessage(lastMessage);
     const response = await result.response;
+    const usage = response.usageMetadata;
     
     return {
       content: response.text(),
+      usage: {
+        promptTokens: usage?.promptTokenCount || 0,
+        completionTokens: usage?.candidatesTokenCount || 0,
+        totalTokens: usage?.totalTokenCount || 0,
+        model: 'gemini-1.5-flash',
+      }
     };
   }
 }

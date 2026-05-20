@@ -110,21 +110,17 @@ export class OrderSaga {
       return;
     }
 
-    // Buscar sesión por LID primero (que es por donde responde WhatsApp), luego por ID/Teléfono
-    let session = await this.sessionsService.findActiveByClientId(client.lid || clientId);
+    // UNIFICACIÓN DE SESIÓN: Usar el teléfono como clave principal de sesión, igual que el orquestador
+    const sessionClientId = client.phone || client.lid || clientId;
+    let session = await this.sessionsService.findActiveByClientId(sessionClientId);
 
-    if (!session && client.lid) {
-      session = await this.sessionsService.findActiveByClientId(clientId);
-    }
-
-    // Si no hay sesión activa, crear una nueva vinculada al LID si lo tenemos
+    // Si no hay sesión activa, crear una nueva vinculada al teléfono
     if (!session) {
-      const sessionTargetId = client.lid || clientId;
-      this.logger.log(`🔍 Creando nueva sesión para recolección de datos de ${client.name} (Target: ${sessionTargetId})`);
+      this.logger.log(`🔍 Creando nueva sesión para recolección de datos de ${client.name} (Target: ${sessionClientId})`);
       session = await this.sessionsService.create(
         new Session({
           id: crypto.randomUUID(),
-          clientId: sessionTargetId,
+          clientId: sessionClientId,
           agentId: 'fresquitoh-bot',
           history: [],
           status: 'active',
@@ -134,9 +130,8 @@ export class OrderSaga {
           metadata: {}
         })
       );
-    }
-    // VERIFICACIÓN DE PERFIL COMPLETO (Hito solicitado por Miguel)
-    const isProfileComplete = !!(client.fullName && client.documentNumber && client.address && client.city);
+    }    // VERIFICACIÓN DE PERFIL COMPLETO (Hito solicitado por Miguel)
+    const isProfileComplete = !!(client.fullName && client.documentNumber && client.address && client.email);
 
     if (!isProfileComplete) {
       this.logger.log(`⚠️ Cliente ${client.name} tiene perfil incompleto. Iniciando recolección de datos masiva.`);
@@ -147,7 +142,7 @@ export class OrderSaga {
       // Guardar el pedido aprobado para finalizar el registro después
       session.metadata.pendingDeliveryRegistration = { orderId: event.orderId };
 
-      const prompt = `¡Excelentes noticias don *${client.name}*! El patrón ya confirmó su pago. ✅\n\nSin embargo, me di cuenta que no tengo sus datos completos para el despacho. Por favor, regáleme en un solo mensaje los siguientes datos:\n\n1. *Nombre completo o Razón Social*\n2. *Cédula o NIT*\n3. *Dirección de entrega*\n\n¡Quedo atento sumercé para agendar su entrega!`;
+      const prompt = `¡Excelentes noticias don *${client.name}*! El patrón ya confirmó su pago. ✅\n\nSin embargo, me di cuenta que no tengo sus datos completos para el despacho. Por favor, regáleme en un solo mensaje los siguientes datos:\n\n1. *Nombre completo o Razón Social*\n2. *Cédula o NIT*\n3. *Dirección de entrega*\n4. *Correo electrónico*\n\n¡Quedo atento sumercé para agendar su entrega!`;
 
       session.setFlowState('AWAITING_BULK_DATA');
       await this.sessionsService.update(session);
@@ -163,9 +158,18 @@ export class OrderSaga {
     // SI EL PERFIL ESTÁ COMPLETO: PROCEDER NORMALMENTE
     try {
       const config = await this.inventoryProvider.getConfig();
-      const deliveryDate = config['FECHA_ENTREGA'] || config['DIAS_ENTREGA'] || 'esta semana';
+      
+      // PRIORIDAD: 1. Items de la sesión (vienen de la interacción actual) 
+      // 2. Items recuperados del Excel (vienen de lo que el cliente realmente puso en el carrito de prepago)
+      const sessionItems = session?.metadata?.currentOrderItems || [];
+      const finalItems = sessionItems.length > 0 ? sessionItems : items;
+      
+      if (finalItems.length === 0) {
+        this.logger.warn(`⚠️ No se encontraron productos para el pedido ${event.orderId}. El registro en entrega podría estar incompleto.`);
+      }
 
-      const items = session?.metadata?.currentOrderItems || [];
+      const deliveryDate = this.calculateDeliveryDate(finalItems, config);
+
       const deliveryFee = session?.metadata?.deliveryFee || 0;
       const total = session?.metadata?.total || 0;
 
@@ -173,11 +177,11 @@ export class OrderSaga {
         id: event.orderId,
         clientId: client.id,
         agentId: 'sales-agent',
-        items: items.map((i: any) => ({
+        items: finalItems.map((i: any) => ({
           productId: i.productId || i.product,
           name: i.productName || i.product,
           quantity: i.quantity || i.unitsNeeded || 1,
-          price: i.pricePerUnit || 0,
+          price: i.pricePerUnit || i.price || 0,
         })),
         deliveryFee,
         total
@@ -193,7 +197,7 @@ export class OrderSaga {
         role: 'assistant',
         channel: 'whatsapp',
       });
-      const whatsappJid = clientId.includes('@') ? clientId : `${clientId}@s.whatsapp.net`;
+      const whatsappJid = client.phone.includes('@') ? client.phone : `${client.phone}@s.whatsapp.net`;
       await this.channelsService.sendMessage(confirmationMessage, whatsappJid, 'whatsapp');
 
       if (session) {
@@ -203,6 +207,39 @@ export class OrderSaga {
     } catch (error) {
       this.logger.error(`❌ Error finalizando pedido aprobado: ${error.message}`);
     }
+  }
+
+  private calculateDeliveryDate(items: any[], config: Record<string, string>): string {
+    let date = 'Jueves';
+    
+    if (config['FECHA_ENTREGA_EXACTA'] && config['FECHA_ENTREGA_EXACTA'].length > 3) {
+      date = config['FECHA_ENTREGA_EXACTA'];
+      this.logger.log(`📅 Usando fecha de entrega exacta desde config: ${date}`);
+    } else {
+      const d1 = config['DIAS_ENTREGA_1'] || 'Jueves';
+      const d2 = config['DIAS_ENTREGA_2'] || 'Lunes';
+      const hasOutOfStock = items.some(i => i.isOutOfStock || (i.stock !== undefined && i.stock <= 0) || i.available === false);
+      
+      const now = new Date();
+      const today = now.getDay(); 
+
+      if (today >= 1 && today <= 3) {
+        date = hasOutOfStock ? d2 : d1;
+      } else if (today >= 4 && today <= 6) {
+        date = hasOutOfStock ? d1 : d2;
+      } else {
+        date = hasOutOfStock ? d2 : d1; // Domingo
+      }
+      this.logger.log(`📅 Fecha de entrega calculada: ${date} (D1: ${d1}, D2: ${d2}, OutOfStock: ${hasOutOfStock})`);
+    }
+
+    // Validación final de seguridad contra valores basura como "frutas"
+    if (date.toLowerCase().includes('fruta') || date.toLowerCase().includes('futra')) {
+       this.logger.warn(`⚠️ Detectado valor basura en fecha de entrega: "${date}". Revirtiendo a Jueves.`);
+       return 'Jueves';
+    }
+
+    return date;
   }
 
   @OnEvent('order.rejected')

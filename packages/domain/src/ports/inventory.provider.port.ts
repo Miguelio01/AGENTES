@@ -39,9 +39,10 @@ export interface InventoryCheckResult {
   currentStock?: number;
   pricePerUnit?: number;
   totalPrice?: number;
+  availableQuantity?: number;
+  missingQuantity?: number;
   currency?: string;
-}
-
+  }
 export interface IInventoryProvider {
   /**
    * Obtiene la información de un producto desde Google Sheets

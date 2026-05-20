@@ -1,6 +1,7 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ILLMProvider, Message } from '@agentes/domain';
+import { ILLMProvider, Message, AiMetric, AI_METRIC_REPOSITORY_PORT } from '@agentes/domain';
+import type { IAiMetricRepository } from '@agentes/domain';
 import {
   GeminiProvider,
   OllamaProvider,
@@ -13,7 +14,11 @@ export class AiService implements OnModuleInit {
   private readonly logger = new Logger(AiService.name);
   private provider: ILLMProvider;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    @Inject(AI_METRIC_REPOSITORY_PORT)
+    private readonly metricRepository: IAiMetricRepository,
+  ) {}
 
   onModuleInit() {
     const providerType = this.configService.get<string>('LLM_PROVIDER') || 'OLLAMA';
@@ -97,11 +102,64 @@ export class AiService implements OnModuleInit {
       `🤖 Generando respuesta con ${this.provider.getProviderName()} para ${optimizedMessages.length} mensajes...`,
     );
     
+    const startTime = Date.now();
     try {
-      return await this.provider.generateResponse(optimizedMessages);
+      const response = await this.provider.generateResponse(optimizedMessages);
+      const latencyMs = Date.now() - startTime;
+
+      // Guardar métrica de forma asíncrona (no bloqueante)
+      this.recordMetric(optimizedMessages, response, latencyMs).catch(err => 
+        this.logger.error('Error recording AI metric:', err.message)
+      );
+
+      return response;
     } catch (error: any) {
+      const latencyMs = Date.now() - startTime;
+      this.recordErrorMetric(optimizedMessages, error, latencyMs).catch(() => {});
       this.logger.error(`❌ Error en proveedor LLM: ${error.message}`);
       throw error;
+    }
+  }
+
+  private async recordMetric(messages: Message[], response: any, latencyMs: number) {
+    try {
+      const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+      
+      const metric = AiMetric.create({
+        provider: this.provider.getProviderName(),
+        model: response.usage?.model || 'unknown',
+        promptTokens: response.usage?.promptTokens || 0,
+        completionTokens: response.usage?.completionTokens || 0,
+        totalTokens: response.usage?.totalTokens || 0,
+        latencyMs,
+        promptSnippet: lastUserMessage?.content?.substring(0, 500),
+        responseSnippet: response.content?.substring(0, 500),
+        status: 'SUCCESS'
+      });
+      
+      await this.metricRepository.save(metric);
+    } catch (e: any) {
+      this.logger.error('Failed to save success metric:', e.message);
+    }
+  }
+
+  private async recordErrorMetric(messages: Message[], error: any, latencyMs: number) {
+    try {
+      const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+      const metric = AiMetric.create({
+        provider: this.provider?.getProviderName() || 'unknown',
+        model: 'error',
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        latencyMs,
+        promptSnippet: lastUserMessage?.content?.substring(0, 500),
+        responseSnippet: error.message?.substring(0, 500),
+        status: 'ERROR'
+      });
+      await this.metricRepository.save(metric);
+    } catch (e: any) {
+       this.logger.error('Failed to save error metric:', e.message);
     }
   }
 

@@ -14,3 +14,5 @@ export * from './repositories/mongo/schemas/session.schema';
 export * from './repositories/mongo/mongo-agent.repository';
 export * from './repositories/mongo/mongo-client.repository';
 export * from './repositories/mongo/mongo-session.repository';
+export * from './repositories/mongo/mongo-ai-metric.repository';
+export * from './repositories/mongo/schemas/ai-metric.schema';

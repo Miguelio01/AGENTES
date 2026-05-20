@@ -120,6 +120,9 @@ export class OrchestratorService {
     }
 
     const clientId = client.id;
+    // LIMPIEZA DE SENDER ID (Por si trae ruidos de sistema)
+    const cleanSenderId = senderId.split(' ')[0].trim();
+    const sessionClientId = client.phone || cleanSenderId;
 
     let emotion = EmotionalState.neutral();
     try {
@@ -132,23 +135,15 @@ export class OrchestratorService {
       this.logger.warn(`   > ⚠️ Análisis emocional omitido`);
     }
 
-    // LIMPIEZA DE SENDER ID (Por si trae ruidos de sistema)
-    const cleanSenderId = senderId.split(' ')[0].trim();
-
-    let session = await this.sessionsService.findActiveByClientId(cleanSenderId);
+    let session = await this.sessionsService.findActiveByClientId(sessionClientId);
     
-    // Si no encuentra por LID, intentar por teléfono si está disponible en metadata
-    if (!session && message.metadata?.phone) {
-      session = await this.sessionsService.findActiveByClientId(message.metadata.phone);
-    }
-
     if (!session) {
       session = Session.create({
-        clientId: cleanSenderId,
+        clientId: sessionClientId,
         agentId: 'fresco-consultor',
       });
       const lastSession =
-        await this.sessionsService.findLastByClientId(cleanSenderId);
+        await this.sessionsService.findLastByClientId(sessionClientId);
       if (lastSession) {
         const contextMessages = lastSession.history.slice(-3);
         if (contextMessages.length > 0) {
@@ -170,13 +165,28 @@ export class OrchestratorService {
     // INTERCEPCIÓN DE FLUJO PRIORITARIA: Si hay un estado pendiente, procesarlo y CORTAR el flujo aquí
     if (
       session.flowState !== 'IDLE' &&
-      session.flowState !== 'AWAITING_ORDER'
+      session.flowState !== 'AWAITING_ORDER' &&
+      session.flowState !== 'AWAITING_WAITLIST_CONFIRMATION'
     ) {
       this.logger.log(`⏳ Procesando flujo activo: ${session.flowState} para ${client.name}`);
       const formResponse = await this.handleFormFlow(
         message,
         client,
         session,
+        sessionClientId,
+        replyCallback,
+        presenceCallback,
+      );
+      if (formResponse) return;
+    }
+
+    // NUEVA INTERCEPCIÓN: Lista de espera (No corta el flujo si el usuario sigue pidiendo cosas, pero maneja la confirmación)
+    if (session.flowState === 'AWAITING_WAITLIST_CONFIRMATION') {
+       const formResponse = await this.handleFormFlow(
+        message,
+        client,
+        session,
+        sessionClientId,
         replyCallback,
         presenceCallback,
       );
@@ -310,29 +320,24 @@ export class OrchestratorService {
         totalRegex.test(content) || isCatalogOrder // Forzar liquidación si es catálogo
       );
 
-      // PERSISTENCIA INICIAL Y GENERACIÓN DE ID ÚNICO
-      if (salesResponse.data.items) {
-        session.metadata = session.metadata || {};
-        session.metadata.currentOrderItems = salesResponse.data.items;
-        session.metadata.deliveryFee = salesResponse.data.deliveryFee || globalDeliveryFee;
-        session.metadata.total = salesResponse.data.total;
-        
-        // Garantizar ID único para todo el ciclo (Billing -> Payment -> Delivery)
-        if ((salesResponse.data.phase === 'BILLING' || isCatalogOrder) && !session.metadata.currentOrderId) {
-           session.metadata.currentOrderId = `ORD-${Date.now().toString().slice(-6)}`;
-        }
-        await this.sessionsService.update(session);
-      }
-
       // RESPUESTA DIRECTA SIN PASAR POR VOICE AGENT (IA) PARA PAGOS
       if (salesResponse.data.phase === 'BILLING' || isCatalogOrder) {
         const externalTotal = message.metadata?.externalTotal;
         const subtotal = salesResponse.data.subtotal || externalTotal || 0;
-        const deliveryFee = salesResponse.data.deliveryFee || globalDeliveryFee;
+        const globalFee = globalDeliveryFee;
+        const deliveryFee = salesResponse.data.deliveryFee || globalFee;
         const total = salesResponse.data.total || (Number(subtotal) + Number(deliveryFee));
         const itemsToDisplay = salesResponse.data.items || [];
         const orderId = session.metadata?.currentOrderId || `ORD-${Date.now().toString().slice(-6)}`;
         
+        // PERSISTENCIA CONSOLIDADA
+        session.metadata = session.metadata || {};
+        session.metadata.currentOrderId = orderId;
+        session.metadata.total = total;
+        session.metadata.deliveryFee = deliveryFee;
+        session.metadata.currentOrderItems = itemsToDisplay.length > 0 ? itemsToDisplay : (message.metadata?.orderItems || []);
+        await this.sessionsService.update(session);
+
         let paymentMsg = `*¡Pedido Recibido Sumercé!* 🛒\n\n`;
         
         if (itemsToDisplay.length > 0) {
@@ -341,7 +346,14 @@ export class OrchestratorService {
             const name = i.product || i.productName || 'Producto';
             const qty = i.quantity || i.unitsNeeded || 1;
             const price = i.totalPrice || 'Pendiente';
-            paymentMsg += `- ${qty}x ${name} ($${price})\n`;
+            paymentMsg += `- ${qty}x ${name} ($${price})`;
+            if (i.isPartial) {
+               paymentMsg += ` _(Sumercé, solo alcancé a guardarle ${qty} de las ${i.originalRequestedQuantity} que quería)_`;
+            }
+            if (i.isWaitlist) {
+               paymentMsg += ` _(Agotado por hoy, sumercé)_`;
+            }
+            paymentMsg += `\n`;
           });
         } else if (isCatalogOrder && message.metadata?.orderItems) {
            // Fallback si delegateToSales no devolvió items pero los tenemos en metadata
@@ -356,14 +368,6 @@ export class OrchestratorService {
         paymentMsg += `\n*Subtotal:* $${subtotal}\n`;
         paymentMsg += `*Domicilio:* $${deliveryFee}\n`;
         paymentMsg += `*TOTAL A PAGAR:* $${total}\n\n`;
-
-        // Asegurar persistencia final antes de proceder
-        session.metadata = session.metadata || {};
-        session.metadata.currentOrderId = orderId;
-        session.metadata.total = total;
-        session.metadata.deliveryFee = deliveryFee;
-        session.metadata.currentOrderItems = itemsToDisplay.length > 0 ? itemsToDisplay : (message.metadata?.orderItems || []);
-        await this.sessionsService.update(session);
 
         // REGISTRO AUTOMÁTICO EN PREPAGO SI ES CATÁLOGO (Omitir confirmación manual)
         if (isCatalogOrder && (itemsToDisplay.length > 0 || message.metadata?.orderItems)) {
@@ -394,6 +398,11 @@ export class OrchestratorService {
             paymentMsg += `✅ *Su pedido (ID: ${orderId}) sigue en proceso de validación.*\n\n`;
           }
         }
+
+        if (salesResponse.data.hasStockIssues) {
+           paymentMsg += `⚠️ *Sumercé, como vio arribita, no me alcanzó para todo lo que pidió.* ¿Quiere que le anote lo que faltó en la lista de cosecha para avisarle apenas tengamos más? (Dígame *Sí* o *No*)\n\n`;
+        }
+
         paymentMsg += `🏦 *MEDIOS DE PAGO:*\n`;
         paymentMsg += `1. *Transferencia Bancolombia:* Ahorros 123-456789-01\n`;
         paymentMsg += `2. *Pago por Llave (Transfiya):* Al número 312 456 7890 (¡Funciona desde cualquier banco!)\n`;
@@ -409,8 +418,12 @@ export class OrchestratorService {
         await presenceCallback(false);
         session.addMessage(reply);
         
-        // Si fue registro automático, ya podemos esperar el comprobante
-        if (isCatalogOrder) {
+        // GESTIÓN DE ESTADOS: Prioridad a la lista de espera si hay problemas, sino a comprobante
+        if (salesResponse.data.hasStockIssues) {
+           session.setFlowState('AWAITING_WAITLIST_CONFIRMATION');
+           // Guardar que venimos de un catálogo para volver a AWAITING_PAYMENT_PROOF después
+           session.metadata.pendingPaymentProof = true;
+        } else if (isCatalogOrder) {
           session.setFlowState('AWAITING_PAYMENT_PROOF');
         }
 
@@ -482,7 +495,13 @@ export class OrchestratorService {
           isTotalRequest // Pasamos la detección aquí
         );
 
-        // PERSISTENCIA: Guardar el carrito actualizado en la sesión
+        // Priorizar el estado de la venta sobre la intención original
+        agentFact = { 
+          ...salesResponse.data, 
+          status: salesResponse.status,
+          intent: salesResponse.status === 'SUCCESS' || salesResponse.status === 'REQUIRES_USER_INPUT' ? 'INTENT_ORDER_PROCESS' : intent 
+        };
+
         if ((salesResponse.status === 'SUCCESS' || salesResponse.status === 'REQUIRES_USER_INPUT') && salesResponse.data.items) {
           session.metadata = {
             ...session.metadata,
@@ -496,26 +515,10 @@ export class OrchestratorService {
             session.setFlowState('AWAITING_PAYMENT_METHOD');
           }
 
-          await this.sessionsService.update(session);
-        }
-
-        // Priorizar el estado de la venta sobre la intención original
-        agentFact = { 
-          ...salesResponse.data, 
-          status: salesResponse.status,
-          intent: salesResponse.status === 'SUCCESS' || salesResponse.status === 'REQUIRES_USER_INPUT' ? 'INTENT_ORDER_PROCESS' : intent 
-        };
-
-        if ((salesResponse.status === 'SUCCESS' || salesResponse.status === 'REQUIRES_USER_INPUT') && salesResponse.data.items) {
-          session.metadata = {
-            ...session.metadata,
-            currentOrderItems: salesResponse.data.items,
-            deliveryFee: salesResponse.data.deliveryFee || session.metadata?.deliveryFee,
-            deliveryDate: salesResponse.data.deliveryDate || session.metadata?.deliveryDate,
-          };
-
-          if (salesResponse.data.phase === 'BILLING') {
-            session.setFlowState('AWAITING_PAYMENT_METHOD');
+          // ACTIVACIÓN DE LISTA DE ESPERA: Si hay problemas de stock, pedimos confirmación
+          if (salesResponse.data.hasStockIssues && session.flowState === 'IDLE') {
+            this.logger.log(`⚠️ Detectadas incidencias de stock. Activando confirmación de lista de espera.`);
+            session.setFlowState('AWAITING_WAITLIST_CONFIRMATION');
           }
 
           await this.sessionsService.update(session);
@@ -763,9 +766,54 @@ export class OrchestratorService {
     message: Message,
     client: Client,
     session: Session,
+    sessionClientId: string,
     replyCallback: any,
     presenceCallback: any,
   ): Promise<boolean> {
+    if (session.flowState === 'AWAITING_WAITLIST_CONFIRMATION') {
+      const choice = message.content.toLowerCase();
+      const isYes = choice.includes('si') || choice.includes('sí') || choice.includes('bueno') || choice.includes('dale') || choice.includes('anóteme') || choice.includes('anoteme');
+      const isNo = choice.includes('no') || choice.includes('deja así') || choice.includes('deja asi') || choice.includes('después');
+
+      if (isYes) {
+        this.logger.log(`📝 Registrando items en lista de espera para ${client.name}`);
+        const orderItems = session.metadata?.currentOrderItems || [];
+        const waitlistItems = orderItems.filter((i: any) => i.isWaitlist || i.isPartial);
+        
+        if (waitlistItems.length > 0) {
+          const waitlistOrder = Order.create({
+            clientId: client.id,
+            agentId: 'inventory-agent',
+            items: waitlistItems.map((i: any) => ({
+              productId: i.productId || i.product,
+              name: i.productName || i.product,
+              quantity: i.isPartial ? (i.originalRequestedQuantity - i.availableQuantity) : i.quantity,
+              price: i.pricePerUnit || 0,
+            })),
+          });
+          await this.inventoryProvider.registerWaitlistOrder(waitlistOrder, client);
+        }
+      }
+
+      if (isYes || isNo) {
+        if (session.metadata?.pendingPaymentProof) {
+           session.setFlowState('AWAITING_PAYMENT_PROOF');
+           delete session.metadata.pendingPaymentProof;
+        } else {
+           session.setFlowState('IDLE');
+        }
+        await this.sessionsService.update(session);
+        
+        const text = isYes 
+          ? '¡Listo sumercé! Ya lo anoté en mi lista de cosecha para avisarle apenas tengamos más. ¿Desea algo más o ya le saco la cuenta?'
+          : 'Entendido sumercé, no se preocupe. ¿Desea añadir algo más o ya le liquido el pedido con lo que hay?';
+          
+        await presenceCallback(false);
+        await replyCallback(Message.create({ content: text, role: 'assistant', channel: message.channel }));
+        return true;
+      }
+    }
+
     if (session.flowState === 'AWAITING_BULK_DATA') {
       this.logger.log(`📊 Extrayendo datos masivos de ${client.name}...`);
       
@@ -778,9 +826,10 @@ export class OrchestratorService {
         1. "fullName": El nombre completo o razón social.
         2. "documentNumber": La cédula o NIT (solo números).
         3. "address": La dirección física de entrega completa.
-        4. "documentType": Si detectas que es CC, NIT, CE o PP, ponlo aquí. Por defecto CC.
-        5. Responde ÚNICAMENTE con el objeto JSON.
-        6. IMPORTANTE: La ciudad siempre será "Bogotá" a menos que el cliente indique explícitamente otra muy diferente.
+        4. "email": El correo electrónico del cliente.
+        5. "documentType": Si detectas que es CC, NIT, CE o PP, ponlo aquí. Por defecto CC.
+        6. Responde ÚNICAMENTE con el objeto JSON.
+        7. IMPORTANTE: La ciudad siempre será "Bogotá" a menos que el cliente indique explícitamente otra muy diferente.
 
         Mensaje del cliente: "${message.content}"
         `.trim(),
@@ -803,12 +852,12 @@ export class OrchestratorService {
             documentType: data.documentType || client.documentType || 'CC',
             address: data.address || client.address,
             city: 'Bogotá',
-            email: client.email || 'facturacion@frescoh.com'
+            email: data.email || client.email
           });
           await this.clientsService.create(client);
           
-          // Verificar si ya tenemos el "triunvirato" de datos (Nombre, Documento, Dirección)
-          const isNowComplete = !!(client.fullName && client.documentNumber && client.address);
+          // Verificar si ya tenemos el "triunvirato + email" de datos (Nombre, Documento, Dirección, Email)
+          const isNowComplete = !!(client.fullName && client.documentNumber && client.address && client.email);
 
           if (isNowComplete) {
             this.logger.log(`✅ Datos completados para ${client.name}. Finalizando registro de pedido.`);
@@ -831,7 +880,7 @@ export class OrchestratorService {
                 await this.inventoryProvider.removeFromPrepaidList(orderId);
                 
                 const config = await this.inventoryProvider.getConfig();
-                const deliveryDate = config['FECHA_ENTREGA'] || config['DIAS_ENTREGA'] || 'esta semana';
+                const deliveryDate = this.calculateDeliveryDate(prepaidOrder.items, config);
 
                 await presenceCallback(false);
                 await replyCallback(Message.create({
@@ -855,6 +904,7 @@ export class OrchestratorService {
             if (!client.fullName) missing.push('Nombre Completo');
             if (!client.documentNumber) missing.push('Cédula/NIT');
             if (!client.address) missing.push('Dirección');
+            if (!client.email) missing.push('Email');
 
             await replyCallback(Message.create({
               content: `¡Muchas gracias sumercé! Ya anoté una parte. Solo me faltaría el dato de: *${missing.join(', ')}* para terminar de agendar su cosecha.`,
@@ -1155,7 +1205,7 @@ export class OrchestratorService {
           'payment.proof.submitted',
           new PaymentProofSubmittedEvent(
             session.metadata.currentOrderId,
-            client.id,
+            sessionClientId, // Unificado: usar el mismo ID de la sesión
             message.metadata?.media,
             {
               clientName: client.name,
@@ -1181,5 +1231,38 @@ export class OrchestratorService {
     }
 
     return false;
+  }
+
+  private calculateDeliveryDate(items: any[], config: Record<string, string>): string {
+    let date = 'Jueves';
+    
+    if (config['FECHA_ENTREGA_EXACTA'] && config['FECHA_ENTREGA_EXACTA'].length > 3) {
+      date = config['FECHA_ENTREGA_EXACTA'];
+      this.logger.log(`📅 Usando fecha de entrega exacta desde config: ${date}`);
+    } else {
+      const d1 = config['DIAS_ENTREGA_1'] || 'Jueves';
+      const d2 = config['DIAS_ENTREGA_2'] || 'Lunes';
+      const hasOutOfStock = items.some(i => i.isOutOfStock || (i.stock !== undefined && i.stock <= 0) || i.available === false);
+      
+      const now = new Date();
+      const today = now.getDay(); 
+
+      if (today >= 1 && today <= 3) {
+        date = hasOutOfStock ? d2 : d1;
+      } else if (today >= 4 && today <= 6) {
+        date = hasOutOfStock ? d1 : d2;
+      } else {
+        date = hasOutOfStock ? d2 : d1; // Domingo
+      }
+      this.logger.log(`📅 Fecha de entrega calculada: ${date} (D1: ${d1}, D2: ${d2}, OutOfStock: ${hasOutOfStock})`);
+    }
+
+    // Validación final de seguridad contra valores basura como "frutas"
+    if (date.toLowerCase().includes('fruta') || date.toLowerCase().includes('futra')) {
+       this.logger.warn(`⚠️ Detectado valor basura en fecha de entrega: "${date}". Revirtiendo a Jueves.`);
+       return 'Jueves';
+    }
+
+    return date;
   }
 }

@@ -366,19 +366,36 @@ export class InventoryAgentService {
     }
 
     const available = product.stock >= unitsNeeded;
+    let status: any = available ? 'SUCCESS' : 'WAITLIST';
+    let availableQuantity = unitsNeeded;
+    let missingQuantity = 0;
+
+    if (!available) {
+      if (product.stock > 0) {
+        status = 'PARTIAL_STOCK';
+        availableQuantity = product.stock;
+        missingQuantity = unitsNeeded - product.stock;
+      } else {
+        status = 'WAITLIST';
+        availableQuantity = 0;
+        missingQuantity = unitsNeeded;
+      }
+    }
 
     return {
       from: 'inventory-agent',
       to: from,
-      status: available ? 'SUCCESS' : 'WAITLIST',
+      status,
       data: {
-        available,
+        available: availableQuantity > 0,
         productName: product.name,
         unitsNeeded,
+        availableQuantity,
+        missingQuantity,
         presentation,
         currentStock: product.stock,
         pricePerUnit: product.price,
-        totalPrice: product.price * unitsNeeded,
+        totalPrice: product.price * availableQuantity,
         currency: 'COP',
       },
     };

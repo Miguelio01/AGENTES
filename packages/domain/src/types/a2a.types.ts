@@ -22,7 +22,7 @@ export interface AgentRequest<T = any> {
 export interface AgentResponse<T = any> {
   from: AgentType;
   to: AgentType | string;
-  status: 'SUCCESS' | 'ERROR' | 'REQUIRES_USER_INPUT' | 'REJECTED' | 'WAITLIST' | 'PENDING';
+  status: 'SUCCESS' | 'ERROR' | 'REQUIRES_USER_INPUT' | 'REJECTED' | 'WAITLIST' | 'PENDING' | 'PARTIAL_STOCK';
   data: T;
   message?: string;
 }

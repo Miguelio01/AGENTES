@@ -57,6 +57,12 @@ export class NvidiaNimProvider implements ILLMProvider {
 
       return {
         content: response.data.choices[0].message.content,
+        usage: {
+          promptTokens: response.data.usage?.prompt_tokens || 0,
+          completionTokens: response.data.usage?.completion_tokens || 0,
+          totalTokens: response.data.usage?.total_tokens || 0,
+          model: this.model,
+        },
       };
     } catch (error: any) {
       console.error(

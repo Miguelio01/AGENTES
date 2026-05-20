@@ -4,6 +4,12 @@ export const LLM_PROVIDER_PORT = 'ILLMProvider';
 
 export interface LLMResponse {
   content: string;
+  usage?: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+    model?: string;
+  };
   toolCalls?: Array<{
     name: string;
     arguments: any;
