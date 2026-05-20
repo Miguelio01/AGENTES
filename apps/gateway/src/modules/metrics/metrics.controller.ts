@@ -21,12 +21,41 @@ export class MetricsController {
     const data = await this.metricRepository.getUsageSummary(30);
     const recent = await this.metricRepository.getRecentLogs(50);
     
+    // Matriz de Precios por 1 Millón de Tokens (USD)
+    const PRICING: Record<string, { in: number, out: number }> = {
+      'meta/llama-3.3-70b-instruct': { in: 0.70, out: 0.70 },
+      'gemini-1.5-flash': { in: 0.075, out: 0.30 },
+      'gemini-1.5-pro': { in: 3.50, out: 10.50 },
+      'gpt-4o': { in: 5.00, out: 15.00 },
+      'llama3': { in: 0, out: 0 } // Ollama Local
+    };
+
+    const calculateCost = (model: string, pIn: number, pOut: number) => {
+      const modelLower = model.toLowerCase();
+      const key = Object.keys(PRICING).find(k => modelLower.includes(k.toLowerCase())) || 'meta/llama-3.3-70b-instruct';
+      const price = PRICING[key];
+      return ((pIn / 1_000_000) * price.in) + ((pOut / 1_000_000) * price.out);
+    };
+
+    // Calcular gasto actual vs proyecciones
+    let currentTotalSpend = 0;
+    let spendIfGpt4 = 0;
+    let spendIfGeminiPro = 0;
+
+    data.usage.forEach(u => {
+      currentTotalSpend += calculateCost(u.model, u.totalPromptTokens, u.totalCompletionTokens);
+      spendIfGpt4 += calculateCost('gpt-4o', u.totalPromptTokens, u.totalCompletionTokens);
+      spendIfGeminiPro += calculateCost('gemini-1.5-pro', u.totalPromptTokens, u.totalCompletionTokens);
+    });
+
+    const savings = spendIfGpt4 - currentTotalSpend;
+
     // Preparar datos para los gráficos
     const labels = recent.map(r => new Date(r.timestamp).toLocaleTimeString()).reverse();
     const tokenData = recent.map(r => r.totalTokens).reverse();
     const latencyData = recent.map(r => r.latencyMs).reverse();
 
-    // Desglose para gráfico de pastel (totales acumulados de los logs recientes)
+    // Desglose para gráfico de pastel
     const pieTotals = recent.reduce((acc, r) => {
       acc.system += (r.systemTokens || 0);
       acc.history += (r.historyTokens || 0);
@@ -77,16 +106,26 @@ export class MetricsController {
                       <p class="text-3xl font-bold text-gray-800">${data.usage.reduce((a, b) => a + b.totalCalls, 0)}</p>
                   </div>
                   <div class="card p-6 border-l-4 border-l-green-500">
-                      <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Tokens Totales</p>
-                      <p class="text-3xl font-bold text-green-600">${data.usage.reduce((a, b) => a + b.totalTokens, 0).toLocaleString()}</p>
+                      <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Inversión (USD)</p>
+                      <p class="text-3xl font-bold text-green-600">$${currentTotalSpend.toFixed(4)}</p>
+                      <p class="text-[10px] text-gray-400 font-bold mt-1">Ahorro vs GPT-4: $${savings.toFixed(2)}</p>
                   </div>
                   <div class="card p-6 border-l-4 border-l-orange-500">
                       <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Latencia Media</p>
                       <p class="text-3xl font-bold text-orange-500">${(data.usage.reduce((a, b) => a + b.avgLatencyMs, 0) / (data.usage.length || 1)).toFixed(0)} ms</p>
                   </div>
                   <div class="card p-6 border-l-4 border-l-purple-500">
-                      <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Eficiencia Costo</p>
-                      <p class="text-3xl font-bold text-purple-600">${data.usage.length > 0 ? 'ALTA' : 'N/A'}</p>
+                      <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Simulación Premium</p>
+                      <div class="flex flex-col gap-1 mt-1">
+                        <div class="flex justify-between text-[10px] font-bold">
+                          <span class="text-gray-400 uppercase">Gemini Pro:</span>
+                          <span class="text-indigo-600">$${spendIfGeminiPro.toFixed(3)}</span>
+                        </div>
+                        <div class="flex justify-between text-[10px] font-bold">
+                          <span class="text-gray-400 uppercase">GPT-4o:</span>
+                          <span class="text-red-500">$${spendIfGpt4.toFixed(3)}</span>
+                        </div>
+                      </div>
                   </div>
               </div>
 
@@ -118,12 +157,13 @@ export class MetricsController {
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Llamadas</th>
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">P / C / T</th>
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">S / H / R</th>
-                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Latencia</th>
-                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Tasa Éxito</th>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Costo Est.</th>
                           </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200">
-                          ${data.usage.map(u => `
+                          ${data.usage.map(u => {
+                            const cost = calculateCost(u.model, u.totalPromptTokens, u.totalCompletionTokens);
+                            return `
                               <tr class="hover:bg-gray-50 transition-colors">
                                   <td class="px-6 py-4">
                                       <div class="font-bold text-gray-800 uppercase text-sm">${u.provider}</div>
@@ -141,14 +181,13 @@ export class MetricsController {
                                         <span class="px-2 py-0.5 bg-orange-50 text-orange-700 text-[10px] rounded font-bold" title="RAG">${u.avgRagTokens || 0}</span>
                                       </div>
                                   </td>
-                                  <td class="px-6 py-4 font-mono text-xs">${u.avgLatencyMs} ms</td>
                                   <td class="px-6 py-4 text-right">
-                                      <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase ${u.successRate > 90 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
-                                          ${u.successRate}%
-                                      </span>
+                                      <div class="text-sm font-black text-green-600">$${cost.toFixed(4)}</div>
+                                      <div class="text-[9px] text-gray-400 italic">Avg: $${(cost / u.totalCalls).toFixed(5)}</div>
                                   </td>
                               </tr>
-                          `).join('')}
+                            `;
+                          }).join('')}
                       </tbody>
                   </table>
               </div>
