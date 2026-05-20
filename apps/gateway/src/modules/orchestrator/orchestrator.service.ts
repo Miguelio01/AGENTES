@@ -310,11 +310,17 @@ export class OrchestratorService {
 
       // RESPUESTA DIRECTA SIN PASAR POR VOICE AGENT (IA) PARA PAGOS
       if (salesResponse.data.phase === 'BILLING' || isCatalogOrder) {
-        const externalTotal = message.metadata?.externalTotal;
-        const subtotal = salesResponse.data.subtotal || externalTotal || 0;
+        const externalTotal = Number(message.metadata?.externalTotal || 0);
+        const salesSubtotal = Number(salesResponse.data.subtotal || 0);
+        
+        // PRIORIDAD: Si la IA no encontró precios pero el catálogo sí los trae, usar catálogo
+        const subtotal = (salesSubtotal > 0) ? salesSubtotal : externalTotal;
         const globalFee = globalDeliveryFee;
-        const deliveryFee = salesResponse.data.deliveryFee || globalFee;
-        const total = salesResponse.data.total || (Number(subtotal) + Number(deliveryFee));
+        const deliveryFee = Number(salesResponse.data.deliveryFee || globalFee);
+        
+        // Calcular el total de forma consistente
+        const total = subtotal + deliveryFee;
+        
         const itemsToDisplay = salesResponse.data.items || [];
         const orderId = session.metadata?.currentOrderId || `ORD-${Date.now().toString().slice(-6)}`;
         

@@ -274,7 +274,19 @@ export class InventoryAgentService {
       return this.processProductMatch(exactMatch, requestedQuantity, request.from as any);
     }
 
-    // 2. INTENTO: Empieza por (Prefix Match)
+    // 2. INTENTO: Búsqueda Flexible para Catálogo (Búsqueda Inversa)
+    // Si el texto de búsqueda contiene el nombre del producto o viceversa
+    const catalogMatch = allProducts.find(p => {
+      const pName = normalize(p.name).toUpperCase();
+      return cleanSearch.includes(pName) || pName.includes(cleanSearch);
+    });
+
+    if (catalogMatch) {
+      this.logger.log(`📱 Match de catálogo encontrado por similitud: ${catalogMatch.name}`);
+      return this.processProductMatch(catalogMatch, requestedQuantity, request.from as any);
+    }
+
+    // 3. INTENTO: Empieza por (Prefix Match)
     const prefixMatches = allProducts.filter(p => normalize(p.name).startsWith(cleanSearch));
     if (prefixMatches.length === 1) {
       return this.processProductMatch(prefixMatches[0], requestedQuantity, request.from as any);
