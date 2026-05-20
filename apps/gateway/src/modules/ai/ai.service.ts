@@ -60,8 +60,22 @@ export class AiService implements OnModuleInit {
       throw new Error('LLM Provider not initialized');
     }
 
-    // 1. Capa de Optimización de Tokens (Antes de RAG para tener espacio)
+    // --- ESTIMACIÓN INICIAL DE TOKENS ---
+    const usageBreakdown = {
+      system: 0,
+      history: 0,
+      rag: 0
+    };
+
+    // 1. Capa de Optimización de Tokens (Historial dinámico)
     let optimizedMessages = this.optimizeMessages(messages);
+    
+    // Calcular tokens de sistema e historial inicial
+    optimizedMessages.forEach(m => {
+      const tokens = this.estimateTokens(m.content || (m as any).props?.content);
+      if (m.role === 'system') usageBreakdown.system += tokens;
+      else usageBreakdown.history += tokens;
+    });
 
     // 2. Capa de Optimización RAG
     const vaultPath = this.configService.get<string>('OBSIDIAN_VAULT_PATH');
@@ -70,13 +84,16 @@ export class AiService implements OnModuleInit {
         const lastUserMessage = [...optimizedMessages].reverse().find(m => m.role === 'user');
         if (lastUserMessage) {
           const ragAdapter = new ObsidianRAGAdapter(vaultPath);
-          const results = await ragAdapter.search(lastUserMessage.content);
+          // LIMITAMOS A 2 FRAGMENTOS PARA AHORRAR TOKENS
+          const results = await ragAdapter.search(lastUserMessage.content, 2);
 
           if (results.length > 0) {
             const context = results
-              .map((r) => `[Fte: ${r.source}]\n${r.content.substring(0, 600)}...`)
+              .map((r) => `[Fte: ${r.source}]\n${r.content.substring(0, 500)}...`)
               .join('\n---\n');
             
+            usageBreakdown.rag = this.estimateTokens(context);
+
             const systemMessage = Message.create({
               role: 'system',
               content: `INFORMACIÓN DE RESPALDO:\n${context}`,
@@ -90,7 +107,7 @@ export class AiService implements OnModuleInit {
             } else {
               optimizedMessages.unshift(systemMessage);
             }
-            this.logger.log(`🧠 RAG: Inyectados ${results.length} fragmentos.`);
+            this.logger.log(`🧠 RAG: Inyectados ${results.length} fragmentos (~${usageBreakdown.rag} tokens).`);
           }
         }
       } catch (error: any) {
@@ -99,7 +116,7 @@ export class AiService implements OnModuleInit {
     }
 
     this.logger.log(
-      `🤖 Generando respuesta con ${this.provider.getProviderName()} para ${optimizedMessages.length} mensajes...`,
+      `🤖 Generando respuesta con ${this.provider.getProviderName()} (${optimizedMessages.length} msg, Est. P: ${usageBreakdown.system + usageBreakdown.history + usageBreakdown.rag} tokens)...`,
     );
     
     const startTime = Date.now();
@@ -108,7 +125,7 @@ export class AiService implements OnModuleInit {
       const latencyMs = Date.now() - startTime;
 
       // Guardar métrica de forma asíncrona (no bloqueante)
-      this.recordMetric(optimizedMessages, response, latencyMs).catch(err => 
+      this.recordMetric(optimizedMessages, response, latencyMs, usageBreakdown).catch(err => 
         this.logger.error('Error recording AI metric:', err.message)
       );
 
@@ -121,7 +138,14 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  private async recordMetric(messages: Message[], response: any, latencyMs: number) {
+  private estimateTokens(text: string): number {
+    const content = String(text || '');
+    if (!content) return 0;
+    // Estimación conservadora: 4 caracteres por token
+    return Math.ceil(content.length / 4);
+  }
+
+  private async recordMetric(messages: Message[], response: any, latencyMs: number, breakdown?: any) {
     try {
       const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
       
@@ -131,6 +155,9 @@ export class AiService implements OnModuleInit {
         promptTokens: response.usage?.promptTokens || 0,
         completionTokens: response.usage?.completionTokens || 0,
         totalTokens: response.usage?.totalTokens || 0,
+        systemTokens: breakdown?.system || 0,
+        historyTokens: breakdown?.history || 0,
+        ragTokens: breakdown?.rag || 0,
         latencyMs,
         promptSnippet: lastUserMessage?.content?.substring(0, 500),
         responseSnippet: response.content?.substring(0, 500),
@@ -152,6 +179,9 @@ export class AiService implements OnModuleInit {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
+        systemTokens: 0,
+        historyTokens: 0,
+        ragTokens: 0,
         latencyMs,
         promptSnippet: lastUserMessage?.content?.substring(0, 500),
         responseSnippet: error.message?.substring(0, 500),
@@ -164,13 +194,36 @@ export class AiService implements OnModuleInit {
   }
 
   private optimizeMessages(messages: Message[]): Message[] {
-    if (messages.length <= 6) return messages;
+    // Filtrar mensajes que no tengan contenido válido para evitar errores
+    const validMessages = messages.filter(m => {
+      const content = m.content || (m as any).props?.content;
+      return content !== undefined && content !== null;
+    });
 
-    const systemPrompt = messages.find(m => m.role === 'system');
-    const others = messages.filter(m => m.role !== 'system');
+    const systemPrompt = validMessages.find(m => m.role === 'system');
+    const others = validMessages.filter(m => m.role !== 'system');
 
-    // Mantener los últimos 8 mensajes para no perder el hilo
-    const window = others.slice(-8);
+    // Límite de caracteres para el historial (aprox 1250 tokens)
+    const MAX_HISTORY_CHARS = 5000;
+    let currentChars = 0;
+    const window: Message[] = [];
+
+    // Recorrer desde el más reciente
+    for (let i = others.length - 1; i >= 0; i--) {
+      const msg = others[i];
+      const content = msg.content || (msg as any).props?.content;
+      const len = String(content || '').length;
+      
+      if (currentChars + len > MAX_HISTORY_CHARS && window.length >= 2) {
+        break; // Mantener al menos los últimos 2 mensajes si es posible
+      }
+      
+      window.unshift(msg);
+      currentChars += len;
+      
+      // No más de 10 mensajes de historial incluso si son cortos
+      if (window.length >= 10) break;
+    }
 
     const result = systemPrompt ? [systemPrompt, ...window] : window;
     return result;

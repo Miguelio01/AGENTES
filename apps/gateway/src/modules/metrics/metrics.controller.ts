@@ -63,6 +63,7 @@ export class MetricsController {
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Proveedor / Modelo</th>
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Llamadas</th>
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Tokens (P/C/T)</th>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Contexto (S/H/R)</th>
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Latencia Media</th>
                               <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Éxito</th>
                           </tr>
@@ -78,6 +79,13 @@ export class MetricsController {
                                   <td class="px-6 py-4">
                                       <div class="text-sm font-semibold">${u.totalTokens.toLocaleString()}</div>
                                       <div class="text-xs text-gray-400">${u.totalPromptTokens} / ${u.totalCompletionTokens}</div>
+                                  </td>
+                                  <td class="px-6 py-4">
+                                      <div class="text-sm text-gray-600">
+                                        <span title="System">${u.avgSystemTokens || 0}</span> / 
+                                        <span title="History">${u.avgHistoryTokens || 0}</span> / 
+                                        <span title="RAG">${u.avgRagTokens || 0}</span>
+                                      </div>
                                   </td>
                                   <td class="px-6 py-4 text-gray-600">${u.avgLatencyMs} ms</td>
                                   <td class="px-6 py-4">

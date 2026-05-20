@@ -544,6 +544,17 @@ export class OrchestratorService {
     }
 
     this.logger.log(`🎙️ PASO A2A: Delegando a la Voz de Fresquitoh...`);
+    
+    // OPTIMIZACIÓN: Solo enviar availableProducts si el intent es de inventario o saludo
+    const optimizedFacts = { ...agentFact };
+    const isInventoryQuery = intent.includes('INTENT_CHECK_INVENTORY') || 
+                            (intent.includes('INTENT_GREETING') && (!agentFact.items || agentFact.items.length === 0));
+    
+    if (!isInventoryQuery && optimizedFacts.availableProducts) {
+      this.logger.log(`✂️ Optimizando tokens: Eliminando catálogo de 'facts' (No es consulta de inventario)`);
+      delete optimizedFacts.availableProducts;
+    }
+
     const voiceResponse = await this.voiceAgent.handleRequest({
       from: 'fresquitoh-orchestrator',
       to: 'fulfillment-agent' as any,
@@ -553,7 +564,7 @@ export class OrchestratorService {
         clientName: client.name,
         emotion: session.emotionalState,
       },
-      data: { facts: agentFact, history: session.history.slice(-10) },
+      data: { facts: optimizedFacts, history: session.history.slice(-10) },
     });
 
     const replyContent = voiceResponse.data.content;

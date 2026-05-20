@@ -6,6 +6,9 @@ export interface AiMetricProps {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  systemTokens?: number;
+  historyTokens?: number;
+  ragTokens?: number;
   latencyMs: number;
   promptSnippet?: string;
   responseSnippet?: string;
@@ -29,6 +32,9 @@ export class AiMetric {
   get promptTokens() { return this.props.promptTokens; }
   get completionTokens() { return this.props.completionTokens; }
   get totalTokens() { return this.props.totalTokens; }
+  get systemTokens() { return this.props.systemTokens; }
+  get historyTokens() { return this.props.historyTokens; }
+  get ragTokens() { return this.props.ragTokens; }
   get latencyMs() { return this.props.latencyMs; }
   get promptSnippet() { return this.props.promptSnippet; }
   get responseSnippet() { return this.props.responseSnippet; }
