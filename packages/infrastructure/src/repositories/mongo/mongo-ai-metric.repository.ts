@@ -70,4 +70,29 @@ export class MongoAiMetricRepository implements IAiMetricRepository {
       usage: stats,
     };
   }
+
+  async getRecentLogs(limit: number = 20): Promise<AiMetric[]> {
+    const docs = await this.metricModel
+      .find()
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .lean();
+
+    return docs.map(d => new AiMetric({
+      id: d._id.toString(),
+      timestamp: d.timestamp,
+      provider: d.provider,
+      model: d.model,
+      promptTokens: d.promptTokens,
+      completionTokens: d.completionTokens,
+      totalTokens: d.totalTokens,
+      systemTokens: d.systemTokens,
+      historyTokens: d.historyTokens,
+      ragTokens: d.ragTokens,
+      latencyMs: d.latencyMs,
+      promptSnippet: d.promptSnippet,
+      responseSnippet: d.responseSnippet,
+      status: d.status,
+    }));
+  }
 }

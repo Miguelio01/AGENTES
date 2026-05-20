@@ -19,6 +19,7 @@ export class MetricsController {
   @Header('Content-Type', 'text/html')
   async getDashboard() {
     const data = await this.metricRepository.getUsageSummary(30);
+    const recent = await this.metricRepository.getRecentLogs(30);
     
     return `
       <!DOCTYPE html>
@@ -98,6 +99,56 @@ export class MetricsController {
                       </tbody>
                   </table>
               </div>
+
+              <div class="mt-12">
+                <h2 class="text-2xl font-bold text-green-800 mb-6">🕒 Actividad Reciente</h2>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Fecha / Hora</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Modelo</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Prompt / Comp</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">S / H / R</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Snippet</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Latencia</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            ${recent.map(r => `
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 text-xs text-gray-600">
+                                        ${r.timestamp.toLocaleString()}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-bold text-gray-800">${r.provider.split('-')[0]}</div>
+                                        <div class="text-[10px] text-gray-400 truncate w-32" title="${r.model}">${r.model}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm">${r.promptTokens} / ${r.completionTokens}</div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                      <div class="text-xs text-gray-500">
+                                        ${r.systemTokens || 0} / ${r.historyTokens || 0} / ${r.ragTokens || 0}
+                                      </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-xs text-gray-500 italic truncate w-48" title="${r.promptSnippet}">
+                                            ${r.promptSnippet || 'N/A'}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="text-sm font-medium ${r.latencyMs > 4000 ? 'text-orange-500' : 'text-gray-600'}">
+                                            ${r.latencyMs} ms
+                                        </span>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+              </div>
+
               <footer class="mt-8 text-center text-gray-400 text-sm italic">
                   Actualizado en tiempo real por J.A.R.V.I.S. • ${new Date().toLocaleString()}
               </footer>

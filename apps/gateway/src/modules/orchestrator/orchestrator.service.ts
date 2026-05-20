@@ -196,37 +196,6 @@ export class OrchestratorService {
     this.logger.log(`🧠 PASO A2A: Delegando al Cerebro...`);
     session.addMessage(message);
 
-    // Solo saludo inicial si es sesión nueva Y el mensaje es corto (saludo)
-    const isGreetingOnly = message.content.length < 20 && (/hola|buenos días|buenas noches|qué tal/i.test(message.content));
-
-    /* Se comenta para que el orquestador maneje el saludo con la lista interactiva siempre
-    if (isNewSession && session.flowState === 'IDLE' && isGreetingOnly) {
-      await this.handleInitialGreeting(
-        message,
-        client,
-        session,
-        replyCallback,
-        presenceCallback,
-      );
-      return;
-    }
-    */
-
-    // REGLA: Si el mensaje viene de un voto de encuesta, responder diferente
-    if (message.metadata?.isPollVote) {
-      this.logger.log(`🎯 Reaccionando a voto de encuesta de ${client.name}`);
-      const votedReply = Message.create({
-        content: `¡Excelente elección don ${client.name}! Vi que marcó unos productos en la lista. Sumercé, dígame ahora cuántos de cada uno quiere y yo ya le saco la cuenta total.`,
-        role: 'assistant',
-        channel: message.channel,
-      });
-      await presenceCallback(false);
-      session.addMessage(votedReply);
-      await this.sessionsService.update(session);
-      await replyCallback(votedReply);
-      return;
-    }
-
     // 1. DETECCIÓN POR CÓDIGO O NÚMERO (Selección guiada)
     const content = message.content.toLowerCase().trim();
     const availableProducts = session.metadata?.lastAvailableProducts || [];
@@ -235,6 +204,25 @@ export class OrchestratorService {
     
     let effectiveMessage = message;
     let isCatalogOrder = content.includes(catalogOrderPrefix) || !!message.metadata?.orderItems;
+
+    // --- ESTRATEGIA ZERO TOKEN: Saludo inicial sin IA ---
+    const userMessages = session.history.filter(m => m.role === 'user');
+    const isFirstContact = userMessages.length === 1;
+    const isLandingPage = content.includes('vengo de su página de enlaces');
+
+    if (isFirstContact && !isCatalogOrder && !isLandingPage) {
+      this.logger.log(`🚀 Zero Token: Primer contacto detectado. Enviando saludo fijo.`);
+      const fixedGreeting = Message.create({
+        content: `¡Hola sumercé! Qué bueno verlo por acá. Por favor haga su pedido por el *Catálogo* que encuentra aquí arribita. ⬆️👆\n\n¡Es más fácil y rápido! Pero si prefiere por aquí, con gusto lo atiendo. ¿Qué se le antoja llevar hoy?`,
+        role: 'assistant',
+        channel: message.channel,
+      });
+      await presenceCallback(false);
+      session.addMessage(fixedGreeting);
+      await this.sessionsService.update(session);
+      await replyCallback(fixedGreeting);
+      return;
+    }
 
     // REINICIO POR CATÁLOGO: Si el cliente manda un catálogo, borramos el carrito anterior y el ID previo
     if (isCatalogOrder) {
