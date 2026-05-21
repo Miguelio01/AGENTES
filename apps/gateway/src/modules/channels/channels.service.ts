@@ -11,12 +11,14 @@ import { Message, AdminPaymentApprovedEvent } from '@agentes/domain';
 import { OrchestratorService } from '../orchestrator/orchestrator.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import * as path from 'path';
+import { MongoClient } from 'mongodb';
 
 @Injectable()
 export class ChannelsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ChannelsService.name);
   private whatsapp: WhatsAppAdapter;
   private telegram: TelegramAdapter;
+  private mongoClient: MongoClient;
 
   constructor(
     private readonly configService: ConfigService,
@@ -46,11 +48,26 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
     const telegramEnabled = !!this.configService.get('TELEGRAM_BOT_TOKEN');
 
     if (whatsappEnabled) {
-      const sessionPath = path.join(process.cwd(), 'sessions/whatsapp');
-      this.whatsapp = new WhatsAppAdapter(
-        sessionPath,
-        this.handleIncomingMessage.bind(this),
-      );
+      const mongoUri = this.configService.get<string>('MONGODB_URI');
+      
+      if (mongoUri) {
+        this.logger.log('📦 Inicializando persistencia de WhatsApp en MongoDB...');
+        this.mongoClient = new MongoClient(mongoUri);
+        await this.mongoClient.connect();
+        
+        this.whatsapp = new WhatsAppAdapter(
+          { mongoClient: this.mongoClient },
+          this.handleIncomingMessage.bind(this),
+        );
+      } else {
+        this.logger.warn('⚠️ No MONGODB_URI found. Falling back to local file session.');
+        const sessionPath = path.join(process.cwd(), 'sessions/whatsapp');
+        this.whatsapp = new WhatsAppAdapter(
+          { path: sessionPath },
+          this.handleIncomingMessage.bind(this),
+        );
+      }
+      
       await this.whatsapp.start();
     }
 
@@ -67,6 +84,7 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     await this.whatsapp?.stop();
     await this.telegram?.stop();
+    await this.mongoClient?.close();
   }
 
   private async handleIncomingMessage(message: Message, senderId: string) {

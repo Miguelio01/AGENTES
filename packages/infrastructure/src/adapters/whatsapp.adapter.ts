@@ -1,14 +1,16 @@
 import { IChannel, Message } from '@agentes/domain';
 import makeWASocket, { 
-  useMultiFileAuthState, 
   DisconnectReason, 
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
   ConnectionState,
   downloadMediaMessage,
+  useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
 import * as qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
+import { MongoClient } from 'mongodb';
+import { useMongoDBAuthState } from './mongodb-auth-state.adapter';
 
 export class WhatsAppAdapter implements IChannel {
   private sock: any;
@@ -16,7 +18,7 @@ export class WhatsAppAdapter implements IChannel {
   private onMessageReceived: (message: Message, senderId: string) => Promise<void>;
 
   constructor(
-    private readonly sessionPath: string,
+    private readonly sessionOptions: { path?: string; mongoClient?: MongoClient; dbName?: string },
     callback: (message: Message, senderId: string) => Promise<void>
   ) {
     this.onMessageReceived = callback;
@@ -27,7 +29,21 @@ export class WhatsAppAdapter implements IChannel {
   }
 
   async start(): Promise<void> {
-    const { state, saveCreds } = await useMultiFileAuthState(this.sessionPath);
+    let authState: any;
+
+    if (this.sessionOptions.mongoClient) {
+      console.log('📦 WhatsApp: Usando persistencia en MongoDB');
+      const db = this.sessionOptions.mongoClient.db(this.sessionOptions.dbName || 'frescoh');
+      const collection = db.collection('whatsapp_sessions');
+      authState = await useMongoDBAuthState(collection, 'main-session');
+    } else if (this.sessionOptions.path) {
+      console.log(`📂 WhatsApp: Usando persistencia local en ${this.sessionOptions.path}`);
+      authState = await useMultiFileAuthState(this.sessionOptions.path);
+    } else {
+      throw new Error('Debe proporcionar sessionOptions.path o sessionOptions.mongoClient');
+    }
+
+    const { state, saveCreds } = authState;
     const { version } = await fetchLatestBaileysVersion().catch(() => ({ 
       version: [2, 3000, 1017531287] as [number, number, number]
     }));

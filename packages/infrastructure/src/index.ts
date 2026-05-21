@@ -6,6 +6,8 @@ export * from './adapters/google-sheets.adapter';
 export * from './adapters/ollama.adapter';
 export * from './adapters/gemini.adapter';
 export * from './adapters/nvidia-nim.adapter';
+export * from './adapters/whatsapp.adapter';
+export * from './adapters/mongodb-auth-state.adapter';
 export * from './adapters/obsidian-rag.adapter';
 export * from './adapters/gmail.adapter';
 export * from './repositories/mongo/schemas/agent.schema';
