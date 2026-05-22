@@ -15,6 +15,7 @@ export const envSchema = z.object({
   NVIDIA_MODEL: z.string().optional().default('meta/llama-3.3-70b-instruct'),
   WHATSAPP_API_TOKEN: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_ORDERS_BOT_TOKEN: z.string().optional(),
   TELEGRAM_ADMIN_ID: z.string().optional(),
   TELEGRAM_PARTNER_KARLOS_ID: z.string().optional(),
   TELEGRAM_PARTNER_PAULA_ID: z.string().optional(),

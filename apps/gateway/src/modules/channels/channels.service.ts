@@ -18,6 +18,7 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ChannelsService.name);
   private whatsapp: WhatsAppAdapter;
   private telegram: TelegramAdapter;
+  private telegramOrders: TelegramAdapter;
   private mongoClient: MongoClient;
 
   constructor(
@@ -29,7 +30,7 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
   @OnEvent('notification.send')
   async handleNotificationEvent(payload: {
     recipientId: string;
-    channel: 'whatsapp' | 'telegram';
+    channel: 'whatsapp' | 'telegram' | 'telegram-orders';
     content: string;
   }) {
     this.logger.log(
@@ -46,6 +47,7 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     const whatsappEnabled = !!this.configService.get('WHATSAPP_API_TOKEN');
     const telegramEnabled = !!this.configService.get('TELEGRAM_BOT_TOKEN');
+    const telegramOrdersToken = this.configService.get<string>('TELEGRAM_ORDERS_BOT_TOKEN');
 
     if (whatsappEnabled) {
       const mongoUri = this.configService.get<string>('MONGODB_URI');
@@ -79,11 +81,30 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
       );
       await this.telegram.start();
     }
+
+    if (telegramOrdersToken) {
+      this.logger.log('🤖 Iniciando Bot de Pedidos Manuales...');
+      this.telegramOrders = new TelegramAdapter(
+        telegramOrdersToken,
+        async (originalMessage, senderId) => {
+          // Re-instanciar el mensaje con el canal correcto para preservar los getters y métodos de clase
+          const ordersMessage = Message.create({
+            content: originalMessage.content,
+            role: originalMessage.role,
+            channel: 'telegram-orders',
+            metadata: originalMessage.metadata
+          });
+          await this.handleIncomingMessage(ordersMessage, senderId);
+        }
+      );
+      await this.telegramOrders.start();
+    }
   }
 
   async onModuleDestroy() {
     await this.whatsapp?.stop();
     await this.telegram?.stop();
+    await this.telegramOrders?.stop();
     await this.mongoClient?.close();
   }
 
@@ -92,7 +113,32 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
       `📩 Message received from ${senderId} via ${message.channel}`,
     );
 
-    // LOGICA DE ADMIN TELEGRAM
+    // Lógica para Bot de Pedidos Manuales
+    if (message.channel === 'telegram-orders') {
+      const content = message.content.toLowerCase();
+      
+      if (content.startsWith('/start') || content.startsWith('/ayuda') || content.startsWith('/help')) {
+        const example = Message.create({
+          content: `👋 ¡Hola! Soy el bot de **Pedidos Manuales Frescoh!**\n\nUsa el comando \`/pedido\` seguido de la información para registrar una orden.\n\n**Ejemplo:**\n\`/pedido\`\nCliente: Maria Paz\nCelular: 3108889900\nDirección: Carrera 7 #12-34 apto 402\nPedido:\n- 2 fresas de 500g\n- 1 kit de frutos rojos\n\nYo me encargo de descontar el inventario y anotarlo en el Sheets. 🚀`,
+          role: 'assistant',
+          channel: 'telegram-orders'
+        });
+        await this.sendMessage(example, senderId, 'telegram-orders');
+        return;
+      }
+
+      if (!content.startsWith('/pedido')) {
+        const warning = Message.create({
+          content: `⚠️ Jefe, use el comando \`/pedido\` al inicio para que yo sepa que debo procesar esta orden. Escriba \`/ayuda\` para ver un ejemplo.`,
+          role: 'assistant',
+          channel: 'telegram-orders'
+        });
+        await this.sendMessage(warning, senderId, 'telegram-orders');
+        return;
+      }
+    }
+
+    // LOGICA DE ADMIN TELEGRAM (CANAL PRINCIPAL)
     const adminId = this.configService.get<string>('TELEGRAM_ADMIN_ID');
     if (message.channel === 'telegram' && senderId === adminId) {
       const contentLow = message.content.toLowerCase();
@@ -167,6 +213,73 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
         });
         return;
       }
+
+      if (contentLow === '/desconectar') {
+        this.logger.log('🚪 Admin solicitó cierre de sesión de WhatsApp...');
+        const initMsg = Message.create({
+          content: '🚪 Cerrando sesión de WhatsApp y eliminando credenciales...',
+          role: 'assistant',
+          channel: 'telegram',
+        });
+        await this.sendMessage(initMsg, senderId, 'telegram');
+
+        try {
+          if (this.whatsapp) {
+            await this.whatsapp.logout();
+            const successMsg = Message.create({
+              content: '✅ Sesión cerrada. Use `/reconectar` para generar un nuevo código QR.',
+              role: 'assistant',
+              channel: 'telegram',
+            });
+            await this.sendMessage(successMsg, senderId, 'telegram');
+          }
+        } catch (error) {
+          this.logger.error(`❌ Error en logout: ${error.message}`);
+          await this.sendMessage(Message.create({
+            content: `❌ Error: ${error.message}`,
+            role: 'assistant',
+            channel: 'telegram'
+          }), senderId, 'telegram');
+        }
+        return;
+      }
+
+      if (contentLow === '/reconectar') {
+        this.logger.log('🔄 Admin solicitó reconexión de WhatsApp...');
+        const initMsg = Message.create({
+          content: '🔄 Reintentando conexión con WhatsApp... Espere un momento.',
+          role: 'assistant',
+          channel: 'telegram',
+        });
+        await this.sendMessage(initMsg, senderId, 'telegram');
+
+        try {
+          if (this.whatsapp) {
+            await this.whatsapp.stop();
+            // Pequeña pausa para asegurar liberación de recursos
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            await this.whatsapp.start();
+            
+            const successMsg = Message.create({
+              content: '✅ ¡WhatsApp ha sido reiniciado! Verifique si el servicio se ha restaurado.',
+              role: 'assistant',
+              channel: 'telegram',
+            });
+            await this.sendMessage(successMsg, senderId, 'telegram');
+          } else {
+            throw new Error('El adaptador de WhatsApp no está inicializado.');
+          }
+        } catch (error) {
+          this.logger.error(`❌ Error en reconexión: ${error.message}`);
+          const errorMsg = Message.create({
+            content: `❌ No se pudo reconectar WhatsApp: ${error.message}`,
+            role: 'assistant',
+            channel: 'telegram',
+          });
+          await this.sendMessage(errorMsg, senderId, 'telegram');
+        }
+        return;
+      }
     }
 
     await this.orchestratorService.handleIncomingMessage(
@@ -194,12 +307,14 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
   async sendMessage(
     message: Message,
     recipientId: string,
-    channelName: 'whatsapp' | 'telegram',
+    channelName: 'whatsapp' | 'telegram' | 'telegram-orders',
   ) {
     if (channelName === 'whatsapp' && this.whatsapp) {
       await this.whatsapp.send(message, recipientId);
     } else if (channelName === 'telegram' && this.telegram) {
       await this.telegram.send(message, recipientId);
+    } else if (channelName === 'telegram-orders' && this.telegramOrders) {
+      await this.telegramOrders.send(message, recipientId);
     } else {
       this.logger.warn(`⚠️ Channel ${channelName} is not available or enabled`);
     }

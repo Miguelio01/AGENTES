@@ -73,7 +73,6 @@ export class WhatsAppAdapter implements IChannel {
         trace: () => {},
         child: function() { return this; }
       } as any,
-      printQRInTerminal: true,
     });
 
     this.sock.ev.on('creds.update', saveCreds);
@@ -110,6 +109,7 @@ export class WhatsAppAdapter implements IChannel {
     this.sock.ev.on('connection.update', (update: Partial<ConnectionState>) => {
       const { connection, lastDisconnect, qr } = update;
       if (qr) {
+        console.log('📢 [WhatsApp] Nuevo código QR generado. Escanéalo para conectar:');
         qrcode.generate(qr, { small: true });
       }
       if (connection === 'close') {
@@ -298,5 +298,20 @@ export class WhatsAppAdapter implements IChannel {
   async stop(): Promise<void> {
     this.sock?.end();
     this.isConnected = false;
+  }
+
+  async logout(): Promise<void> {
+    if (this.sock) {
+      try {
+        await this.sock.logout();
+      } catch (err: any) {
+        console.warn('⚠️ WhatsApp: Error al intentar cerrar sesión formalmente (posiblemente ya desconectado):', err?.message || err);
+        // Forzamos el cierre del socket si el logout formal falla
+        this.sock.end();
+      } finally {
+        this.isConnected = false;
+        console.log('🚪 WhatsApp: Sesión cerrada y credenciales locales invalidadas.');
+      }
+    }
   }
 }

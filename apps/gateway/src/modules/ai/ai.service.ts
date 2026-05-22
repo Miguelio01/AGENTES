@@ -138,6 +138,17 @@ export class AiService implements OnModuleInit {
     }
   }
 
+  async generateText(prompt: string): Promise<string> {
+    const message = Message.create({
+      role: 'user',
+      content: prompt,
+      channel: 'system'
+    });
+    
+    const response = await this.getResponse([message]);
+    return response.content;
+  }
+
   private estimateTokens(text: string): number {
     const content = String(text || '');
     if (!content) return 0;

@@ -53,6 +53,87 @@ export class OrchestratorService {
 
     await presenceCallback(true);
 
+    // --- LOGICA DE PEDIDOS MANUALES (TELEGRAM ORDERS) ---
+    if (message.channel === 'telegram-orders') {
+      this.logger.log('📦 Procesando PEDIDO MANUAL vía Telegram...');
+      
+      const prompt = `Actúa como un experto en extracción de datos para un sistema de pedidos de frutas y verduras.
+Tu tarea es extraer la información de un pedido manual de un socio y devolver ÚNICAMENTE un objeto JSON válido.
+
+Información a extraer:
+1. "nombre": Nombre completo del cliente (string).
+2. "celular": Número de teléfono (string, solo números).
+3. "direccion": Dirección de entrega (string).
+4. "items": Lista de productos (array de objetos con "product" y "quantity").
+
+Texto del pedido:
+"${message.content.replace('/pedido', '').trim()}"
+
+REGLAS ESTRICTAS:
+- Si no encuentras un dato, pon null.
+- Los productos deben ser strings simples (ej: "fresa", "mora").
+- Las cantidades deben ser números.
+- Devuelve SOLO el JSON. No incluyas explicaciones ni markdown.
+- Formato esperado: {"nombre": "...", "celular": "...", "direccion": "...", "items": [{"product": "...", "quantity": 1}]}
+`;
+
+      const extractionResult = await this.aiService.generateText(prompt);
+      this.logger.log(`🤖 Extracción LLM: ${extractionResult}`);
+
+      try {
+        const data = JSON.parse(extractionResult.replace(/```json|```/g, '').trim());
+        
+        if (!data.items || data.items.length === 0) {
+          throw new Error('No se detectaron productos en el pedido.');
+        }
+
+        // 1. Gestionar Cliente
+        let client = await this.clientsService.findByPhone(data.celular);
+        if (!client) {
+          client = Client.create(data.celular || `T-${Date.now()}`, data.nombre || 'Cliente Manual', data.celular || '');
+          client.updateProfile({ address: data.direccion, registrationSource: 'TELEGRAM_MANUAL' });
+          await this.clientsService.create(client);
+        } else {
+          client.updateProfile({ address: data.direccion || client.address });
+        }
+
+        // 2. Procesar el Pedido a través del Sales Agent
+        const response = await this.salesAgent.handleRequest({
+          from: 'orchestrator' as any,
+          to: 'sales-agent' as any,
+          action: 'register_prepaid',
+          data: { items: data.items },
+          context: {
+            clientId: client.id,
+            lastMessage: message.content,
+            orderId: `MAN-${Date.now().toString().slice(-6)}`
+          }
+        });
+
+        if (response.status === 'SUCCESS') {
+          // 3. Formatear Confirmación
+          const itemsList = data.items.map((i: any) => `- ${i.quantity}x ${i.product}`).join('\n');
+          const confirmation = Message.create({
+            content: `✅ **¡Pedido Registrado con Éxito!** 🚀\n\n👤 **Cliente:** ${data.nombre || 'N/A'}\n📞 **Cel:** ${data.celular || 'N/A'}\n📍 **Dirección:** ${data.direccion || 'N/A'}\n\n🛒 **Detalle:**\n${itemsList}\n\n📦 El stock ha sido descontado y el pedido anotado en la Lista de Prepago del Sheets.`,
+            role: 'assistant',
+            channel: 'telegram-orders'
+          });
+          await replyCallback(confirmation);
+        } else {
+          throw new Error(response.data?.message || 'Error desconocido en SalesAgent');
+        }
+      } catch (error) {
+        this.logger.error(`❌ Error procesando pedido manual: ${error.message}`);
+        await replyCallback(Message.create({
+          content: `❌ **Error al procesar el pedido:**\n${error.message}\n\nPor favor intente nuevamente con un formato más claro.`,
+          role: 'assistant',
+          channel: 'telegram-orders'
+        }));
+      }
+      await presenceCallback(false);
+      return;
+    }
+
     // MEJORA: Búsqueda de Identidad Unificada (Celular + LID técnico)
     const metadata = message.metadata || {};
     const pushName = metadata.pushName || '';

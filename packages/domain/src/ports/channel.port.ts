@@ -21,5 +21,5 @@ export interface IChannel {
   /**
    * Obtiene el nombre del canal (whatsapp, telegram, etc.)
    */
-  getName(): string;
+  getName(): string | 'whatsapp' | 'telegram' | 'telegram-orders';
 }
