@@ -1,13 +1,10 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AgentsService } from './agents.service';
 import { InventoryAgentService } from './inventory-agent.service';
 import { KnowledgeAgentService } from './knowledge-agent.service';
 import { EscalationAgentService } from './escalation-agent.service';
 import { SalesAgentService } from './sales-agent.service';
-import { VoiceAgentService } from './voice-agent.service';
 import { FinanceAgentService } from './finance-agent.service';
-import { AgentsController } from './agents.controller';
 import { InternalToolsController } from './internal-tools.controller';
 import { AgentSchema, MongoAgentRepository } from '@agentes/infrastructure';
 import { AGENT_REPOSITORY_PORT } from '@agentes/domain';
@@ -29,12 +26,10 @@ import { ClientsModule } from '../clients/clients.module';
     ClientsModule,
   ],
   providers: [
-    AgentsService,
     InventoryAgentService,
     KnowledgeAgentService,
     EscalationAgentService,
     SalesAgentService,
-    VoiceAgentService,
     FinanceAgentService,
     {
       provide: AGENT_REPOSITORY_PORT,
@@ -42,14 +37,12 @@ import { ClientsModule } from '../clients/clients.module';
       inject: [getModelToken('Agent')],
     },
   ],
-  controllers: [AgentsController, InternalToolsController],
+  controllers: [InternalToolsController],
   exports: [
-    AgentsService,
     InventoryAgentService,
     KnowledgeAgentService,
     EscalationAgentService,
     SalesAgentService,
-    VoiceAgentService,
     FinanceAgentService,
   ],
 })

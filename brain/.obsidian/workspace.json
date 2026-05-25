@@ -8,16 +8,6 @@
         "type": "tabs",
         "children": [
           {
-            "id": "f4d43138d48a15d4",
-            "type": "leaf",
-            "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Vista gráfica"
-            }
-          },
-          {
             "id": "5486fc36236d983b",
             "type": "leaf",
             "state": {
@@ -186,7 +176,7 @@
       "bases:Crear nueva base": false
     }
   },
-  "active": "f4d43138d48a15d4",
+  "active": "5486fc36236d983b",
   "lastOpenFiles": [
     "Lecciones_Aprendidas_2026_05_19_AGENTES.md",
     "productos/index_productos.md",
