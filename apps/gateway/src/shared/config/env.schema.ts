@@ -13,6 +13,7 @@ export const envSchema = z.object({
   NVIDIA_API_KEY: z.string().optional(),
   NVIDIA_BASE_URL: z.string().url().optional().default('https://integrate.api.nvidia.com/v1'),
   NVIDIA_MODEL: z.string().optional().default('meta/llama-3.3-70b-instruct'),
+  NVIDIA_EMBEDDING_MODEL: z.string().optional().default('nvidia/nv-embedqa-e5-v5'),
   WHATSAPP_API_TOKEN: z.string().optional(),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
   TELEGRAM_ORDERS_BOT_TOKEN: z.string().optional(),

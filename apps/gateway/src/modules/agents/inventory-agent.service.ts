@@ -30,6 +30,8 @@ export class InventoryAgentService {
     switch (request.action) {
       case 'check_stock':
         return this.handleCheckStock(request);
+      case 'check_stock_batch':
+        return this.handleCheckStockBatch(request);
       case 'get_available_list':
         return this.handleGetAvailableList(request);
       case 'reserve_stock':
@@ -256,11 +258,12 @@ export class InventoryAgentService {
       'PROD-TIL-01': 'TIL',
       'PROD-HUE-JB': 'HJUM',
       'PROD-HUE-GR': 'HGR',
+      'PROD-HUE-AAA': 'AAA', // Nuevo alias para Huevos AAA
       'FRU-FRE-500': 'FRE',
       'FRU-MOR-500': 'MOR',
       'FRU-FRA-125': 'FRA',
       'FRU-UCH-500': 'UCH',
-      'VER-TOS-500': 'TCH', // Tomate Cherry
+      'VER-TOS-500': 'TCH',
       'FRU-ARA-500': 'ARAP',
       'FRU-ARA-501': 'ARAM',
       'FRU-ARA-502': 'ARAG',
@@ -272,7 +275,7 @@ export class InventoryAgentService {
     const normalize = (text: string) => text
       .toLowerCase()
       .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
-      .replace(/un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco /gi, " ")
+      .replace(/un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco |unidades |uds |plus /gi, " ")
       .replace(/\s+/g, " ")
       .trim();
 
@@ -435,6 +438,30 @@ export class InventoryAgentService {
         totalPrice: product.price * availableQuantity,
         currency: 'COP',
       },
+    };
+  }
+
+  private async handleCheckStockBatch(
+    request: AgentRequest<{ items: { productName: string; quantity: number }[] }>,
+  ): Promise<AgentResponse> {
+    const items = request.data?.items || [];
+    this.logger.log(`📦 Consultando stock por lote para ${items.length} productos`);
+    
+    const results = await Promise.all(
+      items.map(item => 
+        this.handleCheckStock({
+          ...request,
+          action: 'check_stock',
+          data: { productName: item.productName, requestedQuantity: item.quantity }
+        } as any)
+      )
+    );
+
+    return {
+      from: 'inventory-agent',
+      to: request.from,
+      status: 'SUCCESS',
+      data: { results: results.map(r => r.data) },
     };
   }
 

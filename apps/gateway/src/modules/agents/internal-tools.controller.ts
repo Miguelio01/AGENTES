@@ -15,16 +15,29 @@ export class InternalToolsController {
   ) {}
 
   @Post('check-stock')
-  async checkStock(@Body() data: { product: string; quantity: number, clientId: string }) {
-    this.logger.log(`🔧 Internal Tool: check-stock for ${data.product}`);
+  async checkStock(@Body() data: { product: string; quantity: number, clientId: string, action?: string }) {
+    this.logger.log(`🔧 Internal Tool: ${data.action || 'check_stock'} for ${data.product}`);
     const response = await this.inventoryAgent.handleRequest({
       from: 'adk-agent' as any,
       to: 'inventory-agent' as any,
-      action: 'check_stock',
+      action: (data.action as any) || 'check_stock',
       data: {
         productName: data.product,
         requestedQuantity: data.quantity,
       },
+      context: { clientId: data.clientId }
+    });
+    return response;
+  }
+
+  @Post('check-stock-batch')
+  async checkStockBatch(@Body() data: { items: { productName: string; quantity: number }[], clientId: string }) {
+    this.logger.log(`🔧 Internal Tool: check-stock-batch for ${data.items.length} items`);
+    const response = await this.inventoryAgent.handleRequest({
+      from: 'adk-agent' as any,
+      to: 'inventory-agent' as any,
+      action: 'check_stock_batch' as any,
+      data: { items: data.items },
       context: { clientId: data.clientId }
     });
     return response;

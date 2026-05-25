@@ -328,9 +328,19 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
 
   async getConfig(): Promise<Record<string, string>> {
     return this.withRetry(async () => {
+      // Intentar encontrar la hoja de configuración de forma flexible
+      const meta = await this.sheets.spreadsheets.get({ spreadsheetId: this.spreadsheetId });
+      const sheets = meta.data.sheets || [];
+      const configSheet = sheets.find((s: any) => {
+        const title = (s.properties.title || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return title === 'configuracion' || title === 'config';
+      });
+
+      const sheetName = configSheet ? configSheet.properties.title : 'Configuracion';
+      
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: 'Configuracion!A2:B20',
+        range: `'${sheetName}'!A2:B20`,
       });
       
       const rows = response.data.values || [];

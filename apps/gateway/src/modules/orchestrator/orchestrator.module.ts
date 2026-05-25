@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { OrchestratorService } from './orchestrator.service';
 import { AiModule } from '../ai/ai.module';
 import { AiService } from '../ai/ai.service';
@@ -6,6 +6,7 @@ import { SessionsModule } from '../sessions/sessions.module';
 import { ClientsModule } from '../clients/clients.module';
 import { AgentsModule } from '../agents/agents.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { OrdersModule } from '../orders/orders.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
 
@@ -16,6 +17,7 @@ import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
     ClientsModule,
     AgentsModule,
     InventoryModule,
+    forwardRef(() => OrdersModule),
     ConfigModule,
   ],
   providers: [

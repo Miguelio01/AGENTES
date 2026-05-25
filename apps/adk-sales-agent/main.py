@@ -9,6 +9,8 @@ import uvicorn
 import httpx
 import os
 import logging
+import json
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -31,27 +33,29 @@ session_service = InMemorySessionService()
 APP_NAME = "frescoh"
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:3000")
 
-# --- HERRAMIENTAS REALES ---
-async def check_stock(product: str, quantity: int, tool_context: ToolContext) -> dict:
+# --- HERRAMIENTAS OPTIMIZADAS ---
+async def check_inventory_batch(items: list[dict], tool_context: ToolContext) -> dict:
+    """Verifica el stock de múltiples productos en una sola llamada (Batch)"""
     client_id = tool_context.state.get("client_id", "anonymous")
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
-                f"{GATEWAY_URL}/internal/tools/check-stock",
-                json={"product": product, "quantity": quantity, "clientId": client_id},
-                timeout=10.0
+                f"{GATEWAY_URL}/internal/tools/check-stock-batch",
+                json={"items": items, "clientId": client_id},
+                timeout=25.0
             )
             return response.json()
-        except Exception: return {"status": "ERROR", "message": "No pude revisar el stock sumercé."}
+        except Exception as e: 
+            logger.error(f"Error in batch stock check: {e}")
+            return {"status": "ERROR", "message": "No pude revisar el lote de stock sumercé."}
 
 async def get_catalog(tool_context: ToolContext) -> dict:
     async with httpx.AsyncClient() as client:
         try:
-            # Reutilizamos el endpoint de inventario del gateway si existe o uno nuevo
             response = await client.post(
                 f"{GATEWAY_URL}/internal/tools/check-stock",
                 json={"product": "TODOS", "quantity": 0, "clientId": "anonymous"},
-                timeout=10.0
+                timeout=15.0
             )
             return response.json()
         except Exception: return {"status": "ERROR", "message": "No pude cargar el catálogo sumercé."}
@@ -84,10 +88,30 @@ async def get_payment_info(tool_context: ToolContext) -> dict:
         "methods": {
             "transferencia": "Cuenta de Ahorros Bancolombia 571 000051 61",
             "bre_b": "@frescoh (Llave Bancolombia)",
-            "qr_tag": "[SEND_QR]"
+            "qr_tag": "[SEND_QR_FRESCOH]"
         },
         "instruction": "Usa estos datos para armar la respuesta según la guía de comunicación."
     }
+
+async def get_config(tool_context: ToolContext) -> dict:
+    """Retorna la configuración global (Costo de domicilio, fechas, etc.)"""
+    async with httpx.AsyncClient() as client:
+        try:
+            # IMPORTANTE: Enviamos action: get_config explícitamente
+            response = await client.post(
+                f"{GATEWAY_URL}/internal/tools/check-stock",
+                json={"action": "get_config", "product": "CONFIG", "quantity": 0, "clientId": "anonymous"},
+                timeout=15.0
+            )
+            res_data = response.json()
+            if res_data.get("status") == "SUCCESS":
+                config = res_data.get("data", {})
+                logger.info(f"Configuración cargada: {config}")
+                return config
+            return res_data
+        except Exception as e: 
+            logger.error(f"Error cargando config: {e}")
+            return {"status": "ERROR", "message": "No pude cargar la configuración sumercé."}
 
 # --- AGENTES ---
 
@@ -103,35 +127,38 @@ REGLAS DE VOZ:
 """
 
 INSTRUCTIONS_SALES = INSTRUCTIONS_BASE + """
-FLUJO DE ATENCIÓN SEGÚN LA GUÍA:
+REGLAS DE LIQUIDACIÓN DETERMINISTA (PROTOCOLOS BLOQUEANTES):
+1. PRIORIDAD ABSOLUTA DE IDENTIDAD: El ID de pedido oficial es el que aparece en el bloque [ID DE PEDIDO ACTUAL: ...]. DEBES ignorar cualquier otro ID numérico largo que veas en el mensaje del cliente (esos son IDs de red, no de negocio).
+2. PRIORIDAD ABSOLUTA DE PRODUCTOS: Si el mensaje contiene un bloque de [PRODUCTOS YA EXTRAÍDOS...], DEBES usar ESOS datos para disparar las herramientas de inmediato. No intentes extraerlos de nuevo del texto.
+3. Si detectas un pedido, DEBES ejecutar este plan SIN HABLAR con el cliente hasta el final:
+   A. Llama a 'check_inventory_batch' con TODOS los items.
+   B. Llama a 'get_config' para el domicilio.
+   C. Llama a 'get_payment_info' para los datos bancarios.
+4. NUNCA respondas con frases como "Voy a consultar..." o "Ahora que tengo...". Simplemente ejecuta las herramientas.
+5. Si un producto tiene stock 0 o insuficiente, márcalo como $[Pendiente] o [Sin Stock] en el desglose y no lo sumes al total.
+6. Solo emite la respuesta final cuando tengas TODOS los datos de las 3 herramientas.
 
-1. PRIMER CONTACTO:
-   '¡Buen día! Qué gusto saludarle, soy Fresquitoh, y estoy aquí para ayudarle con lo que necesite. ¿Busca algo de nuestro catálogo de productos orgánicos o prefiere que le cuente qué tenemos fresquito para hoy?'
+ESTRUCTURA OBLIGATORIA DE RESPUESTA:
+'¡Pedido Recibido Sumercé! 🛒
 
-2. PEDIDO POR TEXTO:
-   '¡Claro que sí, sumercé! Qué buen antojo. Voy a organizar su pedido para que no se nos pase nada:
-   [Lista de productos x cantidad]
-   ¿Le parece bien así? Confírmeme si todo es correcto y si la dirección es la misma de siempre para tenerlo todo listico.'
+Desglose de su pedido: 
+• [Cantidad]x [Nombre del Producto] ($[Precio Total del Item])
+... (repetir por cada item)
 
-3. CONFIRMACIÓN DE PEDIDO (PENDIENTE DE PAGO):
-   '¡Pedido registrado! ✅ Total: $[Valor]. Para el pago: Cuenta de Ahorros Bancolombia 571 000051 61 o por la llave Bre-B @frescoh. Apenas me envíe el comprobante, le reservo su cupo en la ruta de despacho. ¡Gracias por preferir nuestros productos! [SEND_QR]'
+Subtotal: $[Suma de productos con stock]
+Domicilio: $[Valor de get_config]
+TOTAL A PAGAR: $[Suma Total Real]
 
-4. SEGUIMIENTO (No pago a las 24h):
-   '¡Buen día! Le escribo porque aún no hemos recibido el pago de su pedido. Como trabajamos con productos bien frescos, necesitamos liberar el cupo en el centro de despacho si la orden no se ha confirmado. ¿Aún desea mantenerla? Quedo atento a lo que usted me indique.'
+✅ Pedido registrado con éxito (ID: [ESCRIBE AQUÍ EL ID_PEDIDO DEL CONTEXTO]).
 
-5. PEDIDO ENVIADO:
-   '¡Buenas noticias, sumercé! Su pedido Frescoh! ya salió de nuestro centro de despacho y va camino a su dirección. El repartidor le contactará al llegar. ¡Esperamos que disfrute mucho estos productos fresquitos que le enviamos!'
+🏦 MEDIOS DE PAGO DISPONIBLES:
+1. Transferencia Bancolombia: Ahorros 571 000051 61
+2. Pago por Llave (Bre-B): @frescoh
+3. Código QR: (A continuación se lo comparto sumercé)
 
-6. POST-VENTA (Cómo le fue):
-   '¡Buen día! Espero que haya disfrutado mucho de sus productos. Para nosotros en Frescoh! es muy importante saber cómo le fue con su encargo, sumercé. ¿Tiene algún comentario o sugerencia que quiera compartirnos? ¡Qué dicha poder mejorar para usted!'
+Apenas realice el paguito, por favor me manda el comprobante por aquí mismo para agendar su entrega. ¡Muchas gracias! [SEND_QR_FRESCOH]'
 
-7. DESCUENTO POR REFERIDO:
-   '¡Qué alegría que le haya gustado nuestros productos fresquitos! Si conoce a alguien que también quiera comer natural, tenemos un beneficio para sumercé: por cada persona que haga su primer pedido de su parte, le daremos un descuento especial en su próxima compra. ¡Muchas gracias por ayudarnos a crecer!'
-
-8. CLIENTE INACTIVO (Reactivación):
-   '¡Hola! Hace ya un par de semanas que no sabemos de usted por aquí en Frescoh!, sumercé. Se le ha extrañado en nuestros despachos. ¿Le gustaría revisar nuestro catálogo de esta semana? Tenemos cosas bien ricas y fresquitas esperándole. ¡Quedo atento por si desea hacer un nuevo encargo!'
-
-REGLA CRÍTICA: Usa estas estructuras exactas cuando el contexto coincida. Siempre agrega [SEND_QR] al dar datos de pago.
+REGLA DE ORO: El cliente espera resultados, no procesos. Si hay datos en el contexto, úsalos para disparar las herramientas de inmediato.
 """
 
 finance_agent = Agent(
@@ -155,68 +182,32 @@ REGLA DE SEGURIDAD: Solo existen 'scan_payments', 'get_daily_revenue' y 'get_pay
 sales_agent = Agent(
     name="sales_agent",
     model=nvidia_model, 
-    instruction=INSTRUCTIONS_SALES + """
-Atiende ventas, post-venta, referidos y reactivación. 
-- Usa 'get_catalog' si piden productos.
-- Usa 'get_payment_info' si piden datos de pago.
-- Si el cliente da feedback, agradécele con la frase de POST-VENTA.
-- Si el cliente recomienda a alguien, usa la frase de REFERIDOS.
-""",
-    tools=[check_stock, get_catalog, get_payment_info]
+    instruction=INSTRUCTIONS_SALES,
+    tools=[check_inventory_batch, get_catalog, get_payment_info, get_config]
 )
 
 inventory_agent = Agent(
     name="inventory_agent",
     model=nvidia_model,
     instruction=INSTRUCTIONS_BASE + " Encargado de detalles de productos y stock. Usa 'get_catalog' para ver disponibilidad.",
-    tools=[check_stock, get_catalog]
+    tools=[check_inventory_batch, get_catalog]
 )
 
 emotion_agent = Agent(
     name="emotion_agent",
     model=nvidia_model,
-    instruction="""
-    Analiza el mensaje del cliente y determina su estado emocional.
-    Responde ÚNICAMENTE con un JSON válido:
-    {
-      "emotion": "happy" | "angry" | "sad" | "neutral" | "excited" | "confused",
-      "intensity": float (0-1),
-      "reason": "breve explicación"
-    }
-    """
+    instruction="Analiza el sentimiento del cliente y responde con un JSON breve."
 )
 
 orchestrator_agent = Agent(
     name="orchestrator",
     model=nvidia_model,
-    instruction="""
-    Supervisor. Responde con el nombre del agente que debe atender:
-    - 'sales_agent': Para ventas, catálogo, envíos, feedback post-venta, referidos o reactivación.
-    - 'inventory_agent': Para preguntas técnicas de stock o productos específicos.
-    - 'finance_agent': Para validación de comprobantes, dudas de pago o reportes financieros.
-    """
+    instruction="""Supervisor. Clasifica: 'sales_agent' (pedidos/info), 'inventory_agent' (stock), 'finance_agent' (pagos)."""
 )
 
-@app_instance.post("/analyze-emotion")
-async def analyze_emotion(request: Request):
-    data = await request.json()
-    message_text = data.get("message", "")
-    
-    runner = Runner(agent=emotion_agent, app_name=APP_NAME, session_service=session_service)
-    async for event in runner.run_async(
-        user_id="system", session_id="temp",
-        new_message=types.Content(role="user", parts=[types.Part.from_text(text=message_text)])
-    ):
-        if event.is_final_response() and event.content:
-            try:
-                # Extraer JSON del texto
-                import json, re
-                text = event.content.parts[0].text
-                match = re.search(r'\{.*\}', text, re.DOTALL)
-                if match: return json.loads(match.group())
-            except Exception: pass
-            
-    return {"emotion": "neutral", "intensity": 0.5, "reason": "Error en análisis"}
+@app_instance.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "frescoh-adk-core"}
 
 async def ensure_session(user_id: str, session_id: str):
     try:
@@ -234,38 +225,25 @@ async def run_agent(request: Request):
         session_id = data.get("session_id", "s1")
         message_text = data.get("message", "hola")
         client_id = data.get("client_id", user_id)
-        force_agent = data.get("force_agent")
+        order_id = data.get("order_id", "ORD-NEW")
+        items = data.get("items", [])
         
         await ensure_session(user_id, session_id)
         session = await session_service.get_session(app_name=APP_NAME, user_id=user_id, session_id=session_id)
         session.state["client_id"] = client_id
+        session.state["order_id"] = order_id
 
-        # 1. ANÁLISIS EMOCIONAL (Proactivo - Con protección)
-        emotion_context = "Neutral"
-        try:
-            if len(message_text.split()) > 3:
-                emo_session_id = f"emo-{user_id}"
-                await ensure_session("system", emo_session_id)
-                emo_runner = Runner(agent=emotion_agent, app_name=APP_NAME, session_service=session_service)
-                async for event in emo_runner.run_async(
-                    user_id="system", session_id=emo_session_id,
-                    new_message=types.Content(role="user", parts=[types.Part.from_text(text=message_text)])
-                ):
-                    if event.is_final_response() and event.content:
-                        emotion_context = event.content.parts[0].text
-        except Exception as e:
-            logger.error(f"Error en análisis emocional: {e}")
-
-        # 2. ORQUESTRACIÓN
-        target = force_agent
-        if not target:
+        # --- OPTIMIZACIÓN: SALTAR ORQUESTACIÓN PARA CATÁLOGO ---
+        target = "sales_agent"
+        is_catalogue = "nuevo pedido del catálogo" in message_text.lower() or len(items) > 0
+        
+        if not is_catalogue:
+            # Solo orquestar si no es un pedido obvio del catálogo
             try:
-                orch_session_id = f"orch-{user_id}"
-                await ensure_session(user_id, orch_session_id)
                 orch_runner = Runner(agent=orchestrator_agent, app_name=APP_NAME, session_service=session_service)
                 async for event in orch_runner.run_async(
-                    user_id=user_id, session_id=orch_session_id,
-                    new_message=types.Content(role="user", parts=[types.Part.from_text(text=f"¿Quién atiende (sales_agent, inventory_agent, finance_agent): '{message_text}'?")])
+                    user_id=user_id, session_id=f"orch-{user_id}",
+                    new_message=types.Content(role="user", parts=[types.Part.from_text(text=f"¿Agente para: '{message_text}'?")])
                 ):
                     if event.is_final_response() and event.content:
                         res = event.content.parts[0].text.lower()
@@ -273,23 +251,19 @@ async def run_agent(request: Request):
                         elif "finance" in res: target = "finance_agent"
                         else: target = "sales_agent"
                         break
-            except Exception as e:
-                logger.error(f"Error en orquestación: {e}")
-                target = "sales_agent"
+            except Exception: target = "sales_agent"
 
-        # 3. EJECUCIÓN CON CONTEXTO EMOCIONAL
-        agents_map = {
-            "inventory_agent": inventory_agent,
-            "finance_agent": finance_agent,
-            "sales_agent": sales_agent
-        }
-        active_agent = agents_map.get(target, sales_agent)
+        # --- EJECUCIÓN ---
+        active_agent = sales_agent if target == "sales_agent" else (finance_agent if target == "finance_agent" else inventory_agent)
         
-        # Inyectar el humor del cliente como una instrucción temporal
-        full_message = f"[ESTADO EMOCIONAL DEL CLIENTE: {emotion_context}]\n\nMensaje del cliente: {message_text}"
+        # Inyectar items estructurados e ID DE PEDIDO directamente en el prompt
+        items_context = f"\n[ID DE PEDIDO ACTUAL: {order_id}]\n"
+        if items:
+            items_context += f"[PRODUCTOS YA EXTRAÍDOS DEL CATÁLOGO: {json.dumps(items)}]\n"
+        
+        full_message = f"{items_context}\nMensaje del cliente: {message_text}"
         
         runner = Runner(agent=active_agent, app_name=APP_NAME, session_service=session_service)
-        
         final_reply = "¡Ay sumercé! Me dio un vahído y no pude terminar de hablar. ¿Me repite el pedido?"
         async for event in runner.run_async(
             user_id=user_id, session_id=session_id,
@@ -298,10 +272,10 @@ async def run_agent(request: Request):
             if event.is_final_response() and event.content:
                 final_reply = event.content.parts[0].text
                 
-        return {"reply": final_reply, "metadata": {"agent": target, "emotion": emotion_context}}
+        return {"reply": final_reply, "metadata": {"agent": target}}
     except Exception as e:
         logger.error(f"Error crítico en run_agent: {e}")
-        return {"reply": "¡Ay sumercé! fíjese que se me embolató la libreta. ¿Me regala un momentico y volvemos a empezar?", "metadata": {"agent": "error"}}
+        return {"reply": "¡Ay sumercé! fíjese que se me embolató la libreta.", "metadata": {"agent": "error"}}
 
 if __name__ == "__main__":
     uvicorn.run(app_instance, host="0.0.0.0", port=8000)

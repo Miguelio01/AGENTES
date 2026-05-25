@@ -288,26 +288,31 @@ export class WhatsAppAdapter implements IChannel {
     const typingDuration = Math.min(message.content.length * 15, 800);
     await new Promise(resolve => setTimeout(resolve, typingDuration));
 
-    // PROCESAMIENTO DE TAGS TÉCNICOS
-    if (message.content.includes('[SEND_QR]')) {
-      const cleanText = message.content.replace('[SEND_QR]', '').trim();
+    // PROCESAMIENTO DE TAGS TÉCNICOS (QR y Otros)
+    const qrPattern = /\[SEND_QR\]|💎ADJUNTAR_QR_FRESCOH💎|\[SEND_QR_FRESCOH\]|#QR_FRESCOH#/gi;
+    const hasQRTag = qrPattern.test(message.content);
+
+    if (hasQRTag) {
+      const cleanText = message.content.replace(qrPattern, '').trim();
+
       if (cleanText) {
         await this.sock.sendMessage(recipientId, { text: cleanText });
       }
 
-      // Intentar enviar la imagen del QR
+      // Intentar enviar la imagen del QR con rutas absolutas robustas
+      const rootDir = process.cwd();
       const possiblePaths = [
-        path.join(process.cwd(), 'apps/gateway/src/assets/qr_frescoh.png'),
-        path.join(process.cwd(), 'src/assets/qr_frescoh.png'),
-        path.join(process.cwd(), 'assets/qr_frescoh.png'),
-        path.join(process.cwd(), 'dist/apps/gateway/src/assets/qr_frescoh.png'),
+        path.resolve(rootDir, 'apps/gateway/src/assets/qr_frescoh.png'),
+        path.resolve(rootDir, 'src/assets/qr_frescoh.png'),
+        path.resolve(rootDir, 'assets/qr_frescoh.png'),
+        '/Users/miguelio/Documents/GitHub/AGENTES/apps/gateway/src/assets/qr_frescoh.png'
       ];
 
-      console.log(`🔍 [WhatsApp] Buscando QR en: ${process.cwd()}`);
+      console.log(`🔍 [WhatsApp] Disparador QR detectado. Buscando en sistema...`);
       let sent = false;
       for (const qrPath of possiblePaths) {
         if (fs.existsSync(qrPath)) {
-          console.log(`✅ [WhatsApp] QR encontrado en: ${qrPath}`);
+          console.log(`✅ [WhatsApp] QR enviado desde: ${qrPath}`);
           await this.sock.sendMessage(recipientId, {
             image: fs.readFileSync(qrPath),
             caption: 'Código QR Bancolombia - Frescoh!'

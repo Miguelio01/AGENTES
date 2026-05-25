@@ -21,3 +21,4 @@ export * from './repositories/mongo/mongo-ai-metric.repository';
 export * from './repositories/mongo/mongo-knowledge.repository';
 export * from './repositories/mongo/schemas/ai-metric.schema';
 export * from './repositories/mongo/schemas/knowledge.schema';
+export * from './repositories/mongo/schemas/counter.schema';

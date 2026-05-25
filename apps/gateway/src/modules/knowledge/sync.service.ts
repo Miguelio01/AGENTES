@@ -97,16 +97,34 @@ export class KnowledgeSyncService implements OnModuleInit {
     }
   }
 
-  private chunkText(text: string, maxLength: number = 2000): string[] {
+  private chunkText(text: string, maxLength: number = 800): string[] {
     // Si es corto, devolver completo
     if (text.length <= maxLength) return [text];
 
-    // Fragmentación ruda por párrafos para este MVP
+    // Fragmentación por párrafos con margen de seguridad para tokens
     const paragraphs = text.split('\n\n');
     const chunks: string[] = [];
     let currentChunk = '';
 
     for (const p of paragraphs) {
+      // Si un solo párrafo es más grande que el límite, lo cortamos por líneas
+      if (p.length > maxLength) {
+        if (currentChunk) chunks.push(currentChunk.trim());
+        
+        const lines = p.split('\n');
+        let lineChunk = '';
+        for (const line of lines) {
+          if ((lineChunk + line).length > maxLength) {
+            chunks.push(lineChunk.trim());
+            lineChunk = line + '\n';
+          } else {
+            lineChunk += line + '\n';
+          }
+        }
+        currentChunk = lineChunk;
+        continue;
+      }
+
       if ((currentChunk + p).length > maxLength) {
         if (currentChunk) chunks.push(currentChunk.trim());
         currentChunk = p + '\n\n';

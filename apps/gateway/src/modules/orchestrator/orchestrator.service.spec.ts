@@ -8,6 +8,7 @@ import { EscalationAgentService } from '../agents/escalation-agent.service';
 import { SalesAgentService } from '../agents/sales-agent.service';
 import { KnowledgeAgentService } from '../agents/knowledge-agent.service';
 import { FinanceAgentService } from '../agents/finance-agent.service';
+import { OrdersService } from '../orders/orders.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { INVENTORY_PROVIDER_PORT } from '@agentes/domain';
 import { ConfigService } from '@nestjs/config';
@@ -27,6 +28,7 @@ describe('OrchestratorService', () => {
         { provide: SalesAgentService, useValue: {} },
         { provide: KnowledgeAgentService, useValue: {} },
         { provide: FinanceAgentService, useValue: {} },
+        { provide: OrdersService, useValue: { getNextOrderId: vi.fn() } },
         { provide: EventEmitter2, useValue: {} },
         { provide: ConfigService, useValue: { get: vi.fn() } },
         { provide: 'IEmotionAnalyzer', useValue: {} },

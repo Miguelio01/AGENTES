@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { MongooseModule } from '@nestjs/mongoose';
+import { CounterSchema } from '@agentes/infrastructure';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { OrderSaga } from './sagas/order.saga';
@@ -11,8 +13,9 @@ import { AgentsModule } from '../agents/agents.module';
 
 @Module({
   imports: [
+    MongooseModule.forFeature([{ name: 'Counter', schema: CounterSchema }]),
     ConfigModule,
-    ChannelsModule,
+    forwardRef(() => ChannelsModule),
     SessionsModule,
     InventoryModule,
     ClientsModule,

@@ -16,6 +16,7 @@ import { ClientsService } from '../clients/clients.service';
 import { InventoryAgentService } from '../agents/inventory-agent.service';
 import { EscalationAgentService } from '../agents/escalation-agent.service';
 import { SalesAgentService } from '../agents/sales-agent.service';
+import { OrdersService } from '../orders/orders.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
@@ -30,6 +31,7 @@ export class OrchestratorService {
     private readonly inventoryAgent: InventoryAgentService,
     private readonly escalationAgent: EscalationAgentService,
     private readonly salesAgent: SalesAgentService,
+    private readonly ordersService: OrdersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
   ) {
@@ -51,7 +53,24 @@ export class OrchestratorService {
     const client = await this.resolveClient(message, senderId);
     const session = await this.resolveSession(client, senderId);
 
-    // 2. INTERCEPCIÓN DE FLUJOS MANUALES (Formularios/Hands)
+    // 2. GESTIÓN DE ID DE PEDIDO (Consecutivo ORD-XXXX)
+    // Si hay items del catálogo, forzamos un NUEVO ID de pedido para evitar usar el de la sesión anterior
+    if (message.metadata?.orderItems) {
+      const orderId = await this.ordersService.getNextOrderId();
+      if (!session.metadata) session.metadata = {};
+      session.metadata.currentOrderId = orderId;
+      session.metadata.registeredInPrepago = false; // Resetear para que se grabe en Sheets
+      await this.sessionsService.update(session);
+      this.logger.log(`🔢 Generado nuevo ID de pedido (Catálogo): ${orderId}`);
+    } else if (!session.metadata?.currentOrderId) {
+      const orderId = await this.ordersService.getNextOrderId();
+      if (!session.metadata) session.metadata = {};
+      session.metadata.currentOrderId = orderId;
+      await this.sessionsService.update(session);
+      this.logger.log(`🔢 Generado nuevo ID de pedido (Texto): ${orderId}`);
+    }
+
+    // 3. INTERCEPCIÓN DE FLUJOS MANUALES (Formularios/Hands)
     if (this.shouldInterceptFlow(session)) {
       this.logger.log(`⏳ Procesando flujo de formulario: ${session.flowState}`);
       const handled = await this.handleFormFlow(
@@ -64,12 +83,12 @@ export class OrchestratorService {
       if (handled) return;
     }
 
-    // 3. ESTRATEGIA ZERO TOKEN: Saludo inicial optimizado
+    // 4. ESTRATEGIA ZERO TOKEN: Saludo inicial optimizado
     if (this.isInitialContact(session, message)) {
       return this.sendFixedGreeting(message, session, replyCallback, presenceCallback);
     }
 
-    // 4. DELEGACIÓN AL CORE COGNITIVO (Python ADK)
+    // 5. DELEGACIÓN AL CORE COGNITIVO (Python ADK)
     this.logger.log(`🧠 A2A CORE: Delegando razonamiento a Python ADK...`);
     
     try {
@@ -148,6 +167,9 @@ export class OrchestratorService {
   }
 
   private isInitialContact(session: Session, message: Message): boolean {
+    // Si el mensaje tiene media (comprobante), NUNCA es un contacto inicial para saludo genérico
+    if (message.metadata?.media) return false;
+    
     const userMsgs = session.history.filter(m => m.role === 'user');
     return userMsgs.length === 0 && message.content.length < 10 && !message.metadata?.orderItems;
   }
@@ -172,14 +194,18 @@ export class OrchestratorService {
       client_id: client.id,
       order_id: session.metadata?.currentOrderId,
       items: message.metadata?.orderItems || [],
-    }, { timeout: 30000 })).data;
+    }, { timeout: 90000 })).data;
   }
 
   private async syncSessionWithCore(session: Session, adkResponse: any, client: Client, message: Message) {
     const metadata = adkResponse.metadata || {};
     
-    // Si el ADK detecta que estamos en fase de pago o liquidación, ajustamos el flowState
-    if (adkResponse.reply.includes('[SEND_QR]') || adkResponse.reply.includes('cuenta es:')) {
+    // Reconocer los nuevos tags de QR o menciones de pago para activar el estado de espera de comprobante
+    const paymentTags = ['[SEND_QR]', '[SEND_QR_FRESCOH]', '💎ADJUNTAR_QR_FRESCOH💎', 'cuenta es:'];
+    const isPaymentPhase = paymentTags.some(tag => adkResponse.reply.includes(tag));
+
+    if (isPaymentPhase) {
+      this.logger.log(`💰 Sincronización A2A: Detectada fase de pago. flowState -> AWAITING_PAYMENT_PROOF`);
       session.setFlowState('AWAITING_PAYMENT_PROOF');
     }
 
@@ -195,16 +221,21 @@ export class OrchestratorService {
 
   private async registerCatalogueInPrepago(message: Message, client: Client, session: Session) {
       const orderId = session.metadata?.currentOrderId || `ORD-${Date.now().toString().slice(-6)}`;
+      const orderItems = message.metadata?.orderItems || [];
+      
       try {
         await this.salesAgent.handleRequest({
           from: 'orchestrator' as any,
           to: 'fulfillment-agent' as any,
           action: 'register_prepaid',
           context: { clientId: client.id, orderId },
-          data: { items: message.metadata.orderItems },
+          data: { items: orderItems },
         });
+        
+        if (!session.metadata) session.metadata = {};
         session.metadata.registeredInPrepago = true;
         session.metadata.currentOrderId = orderId;
+        
         await this.sessionsService.update(session);
         this.logger.log(`✅ Registro automático en prepago completado para ${client.name}`);
       } catch (e) {

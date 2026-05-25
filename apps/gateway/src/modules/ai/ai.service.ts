@@ -29,10 +29,11 @@ export class AiService {
       const nvidiaKey = this.configService.get<string>('NVIDIA_API_KEY');
       const nvidiaUrl = this.configService.get<string>('NVIDIA_BASE_URL');
       const nvidiaModel = this.configService.get<string>('NVIDIA_MODEL');
+      const nvidiaEmbedModel = this.configService.get<string>('NVIDIA_EMBEDDING_MODEL');
       
       if (nvidiaKey) {
-        this.logger.log(`🚀 Using NVIDIA NIM provider with model ${nvidiaModel}`);
-        this.provider = new NvidiaNimProvider(nvidiaKey, nvidiaUrl, nvidiaModel);
+        this.logger.log(`🚀 Using NVIDIA NIM provider with model ${nvidiaModel} and embedding model ${nvidiaEmbedModel}`);
+        this.provider = new NvidiaNimProvider(nvidiaKey, nvidiaUrl, nvidiaModel, nvidiaEmbedModel);
         return;
       }
     }

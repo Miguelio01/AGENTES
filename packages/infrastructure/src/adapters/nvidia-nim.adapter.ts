@@ -6,7 +6,7 @@ export class NvidiaNimProvider implements ILLMProvider {
     private readonly apiKey: string,
     private readonly baseUrl: string = 'https://integrate.api.nvidia.com/v1',
     private readonly model: string = 'meta/llama-3.3-70b-instruct',
-    private readonly embeddingModel: string = 'nvidia/llama-3.2-nv-embedqc-24b'
+    private readonly embeddingModel: string = 'nvidia/nv-embedqa-e5-v5'
   ) {}
 
   getProviderName(): string {
@@ -20,6 +20,7 @@ export class NvidiaNimProvider implements ILLMProvider {
         {
           model: this.embeddingModel,
           input: [text],
+          input_type: 'passage',
           encoding_format: 'float'
         },
         {
