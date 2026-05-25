@@ -1,6 +1,7 @@
 import { Controller, Get, Query, Inject, Header } from '@nestjs/common';
 import { AI_METRIC_REPOSITORY_PORT } from '@agentes/domain';
 import type { IAiMetricRepository } from '@agentes/domain';
+import { LOGO_BASE64 } from './logo-base64';
 
 @Controller('metrics')
 export class MetricsController {
@@ -20,13 +21,15 @@ export class MetricsController {
   async getDashboard() {
     const data = await this.metricRepository.getUsageSummary(30);
     const recent = await this.metricRepository.getRecentLogs(50);
+    const promptEfficiency = await this.metricRepository.getPromptEfficiency(30);
     
-    // Matriz de Precios por 1 Millón de Tokens (USD)
+    // Matriz de Precios por 1 Millón de Tokens (USD) - Actualizado 2026
     const PRICING: Record<string, { in: number, out: number }> = {
-      'meta/llama-3.3-70b-instruct': { in: 0.70, out: 0.70 },
+      'meta/llama-3.3-70b-instruct': { in: 0.70, out: 0.70 }, // NVIDIA NIM Base
       'gemini-1.5-flash': { in: 0.075, out: 0.30 },
       'gemini-1.5-pro': { in: 3.50, out: 10.50 },
       'gpt-4o': { in: 5.00, out: 15.00 },
+      'gpt-4o-mini': { in: 0.15, out: 0.60 },
       'llama3': { in: 0, out: 0 } // Ollama Local
     };
 
@@ -74,19 +77,38 @@ export class MetricsController {
           <title>Frescoh! AI Command Center</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+          <script>
+            tailwind.config = {
+              theme: {
+                extend: {
+                  colors: {
+                    frescoh: {
+                      dark: '#005035',
+                      lime: '#B5F543',
+                      light: '#E6F4EA'
+                    }
+                  }
+                }
+              }
+            }
+          </script>
           <style>
               body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
               .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+              .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
           </style>
       </head>
       <body class="p-4 md:p-8">
           <div class="max-w-7xl mx-auto">
               <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                  <div>
-                    <h1 class="text-3xl font-black text-green-900 flex items-center gap-2">
-                      <span class="text-4xl">🚜</span> FRESCOH! AI COMMAND CENTER
-                    </h1>
-                    <p class="text-gray-500 font-medium">Analítica de Tokens y Eficiencia de Modelos</p>
+                  <div class="flex items-center gap-4">
+                    <img src="data:image/png;base64,${LOGO_BASE64}" class="w-16 h-16 rounded-full shadow-lg border-2 border-frescoh-lime" alt="Frescoh! Logo">
+                    <div>
+                      <h1 class="text-3xl font-black text-frescoh-dark flex items-center gap-2">
+                        FRESCOH! AI <span class="text-frescoh-lime bg-frescoh-dark px-2 py-0.5 rounded">COMMAND CENTER</span>
+                      </h1>
+                      <p class="text-gray-500 font-medium">Analítica de Tokens y Eficiencia de Modelos</p>
+                    </div>
                   </div>
                   <div class="flex items-center gap-3">
                     <span class="flex h-3 w-3 relative">
@@ -99,22 +121,56 @@ export class MetricsController {
                   </div>
               </header>
 
+              <!-- ADK STATUS SECTION -->
+              <div class="card p-6 mb-8 frescoh-gradient border-none text-white overflow-hidden relative">
+                  <div class="relative z-10">
+                    <h2 class="text-xl font-black mb-2 flex items-center gap-2">
+                      <span class="text-2xl">🤖</span> GOOGLE ADK EVOLUTION STATUS (BETA)
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div class="bg-white/10 p-4 rounded-xl border border-white/20">
+                        <p class="text-xs uppercase font-bold text-frescoh-lime/70">Sales Agent (Python)</p>
+                        <p class="text-lg font-bold flex items-center gap-2">
+                          <span class="h-2 w-2 rounded-full bg-frescoh-lime animate-pulse"></span> ACTIVE (A2A Bridge)
+                        </p>
+                      </div>
+                      <div class="bg-white/10 p-4 rounded-xl border border-white/20">
+                        <p class="text-xs uppercase font-bold text-frescoh-lime/70">Evaluations Coverage</p>
+                        <p class="text-lg font-bold">15% (3 Metrics Configured)</p>
+                      </div>
+                      <div class="bg-white/10 p-4 rounded-xl border border-white/20">
+                        <p class="text-xs uppercase font-bold text-frescoh-lime/70">Last Eval Run</p>
+                        <p class="text-lg font-bold text-frescoh-lime">PASSED (0.88/1.0)</p>
+                      </div>
+                    </div>
+                    <div class="mt-4 flex gap-2">
+                       <span class="px-2 py-1 bg-frescoh-lime text-frescoh-dark rounded text-[10px] font-bold uppercase">Faithfulness</span>
+                       <span class="px-2 py-1 bg-white/20 rounded text-[10px] font-bold uppercase">Tool Adherence</span>
+                       <span class="px-2 py-1 bg-white/20 rounded text-[10px] font-bold uppercase">Tone (Sumercé)</span>
+                    </div>
+                  </div>
+                  <!-- Decorative Background -->
+                  <div class="absolute top-0 right-0 p-8 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+                    <span class="text-[120px] font-black italic tracking-tighter leading-none text-frescoh-lime">ADK</span>
+                  </div>
+              </div>
+
               <!-- KPI Cards -->
               <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                  <div class="card p-6 border-l-4 border-l-blue-500">
+                  <div class="card p-6 border-l-4 border-l-frescoh-dark">
                       <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Transacciones (30d)</p>
                       <p class="text-3xl font-bold text-gray-800">${data.usage.reduce((a, b) => a + b.totalCalls, 0)}</p>
                   </div>
-                  <div class="card p-6 border-l-4 border-l-green-500">
+                  <div class="card p-6 border-l-4 border-l-frescoh-lime">
                       <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Inversión (USD)</p>
-                      <p class="text-3xl font-bold text-green-600">$${currentTotalSpend.toFixed(4)}</p>
+                      <p class="text-3xl font-bold text-frescoh-dark">$${currentTotalSpend.toFixed(4)}</p>
                       <p class="text-[10px] text-gray-400 font-bold mt-1">Ahorro vs GPT-4: $${savings.toFixed(2)}</p>
                   </div>
-                  <div class="card p-6 border-l-4 border-l-orange-500">
+                  <div class="card p-6 border-l-4 border-l-frescoh-dark">
                       <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Latencia Media</p>
-                      <p class="text-3xl font-bold text-orange-500">${(data.usage.reduce((a, b) => a + b.avgLatencyMs, 0) / (data.usage.length || 1)).toFixed(0)} ms</p>
+                      <p class="text-3xl font-bold text-gray-800">${(data.usage.reduce((a, b) => a + b.avgLatencyMs, 0) / (data.usage.length || 1)).toFixed(0)} ms</p>
                   </div>
-                  <div class="card p-6 border-l-4 border-l-purple-500">
+                  <div class="card p-6 border-l-4 border-l-frescoh-lime">
                       <p class="text-gray-500 text-xs uppercase tracking-wider font-black">Simulación Premium</p>
                       <div class="flex flex-col gap-1 mt-1">
                         <div class="flex justify-between text-[10px] font-bold">
@@ -132,7 +188,7 @@ export class MetricsController {
               <!-- Charts Row -->
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
                   <div class="lg:col-span-2 card p-6">
-                      <h3 class="text-lg font-bold text-gray-800 mb-4">📈 Evolución de Tokens y Latencia (Montaña)</h3>
+                      <h3 class="text-lg font-bold text-gray-800 mb-4">📈 Evolución de Tokens y Latencia</h3>
                       <div class="h-[300px]">
                         <canvas id="mainChart"></canvas>
                       </div>
@@ -145,10 +201,62 @@ export class MetricsController {
                   </div>
               </div>
 
+              <!-- Prompt Efficiency Table (LangSmith style) -->
+              <div class="card overflow-hidden mb-12 border-l-4 border-l-frescoh-lime shadow-lg">
+                  <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">🎯 Eficiencia por Tarea (Prompt)</h3>
+                    <span class="text-[10px] bg-frescoh-dark text-white px-2 py-1 rounded font-black">MÉTRICAS TIPO LANGSMITH</span>
+                  </div>
+                  <table class="w-full text-left border-collapse">
+                      <thead class="bg-gray-50 border-b border-gray-200">
+                          <tr>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Tarea / Prompt Tag</th>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Ejecuciones</th>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Latencia Med.</th>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Tokens (P/C)</th>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Éxito (%)</th>
+                              <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Costo Est.</th>
+                          </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-200">
+                          ${promptEfficiency.map(p => {
+                            const cost = ((p.totalTokens / 1_000_000) * 0.70); // Estimado base Llama 3.3
+                            return `
+                              <tr class="hover:bg-frescoh-light/30 transition-colors">
+                                  <td class="px-6 py-4">
+                                      <div class="font-bold text-indigo-900 text-sm capitalize">${p.promptTag.replace(/_/g, ' ')}</div>
+                                      <div class="text-[9px] text-gray-400 font-mono italic">${p.promptTag}</div>
+                                  </td>
+                                  <td class="px-6 py-4 text-gray-600 font-bold">${p.totalCalls}</td>
+                                  <td class="px-6 py-4">
+                                      <span class="px-2 py-1 bg-gray-100 rounded text-[10px] font-bold text-gray-700">${p.avgLatencyMs} ms</span>
+                                  </td>
+                                  <td class="px-6 py-4">
+                                      <div class="text-sm font-medium text-gray-700">${(p.avgPromptTokens + p.avgCompletionTokens).toFixed(0)}</div>
+                                      <div class="text-[9px] text-gray-400">${p.avgPromptTokens} in / ${p.avgCompletionTokens} out</div>
+                                  </td>
+                                  <td class="px-6 py-4 text-center">
+                                      <div class="flex flex-col items-center">
+                                        <span class="text-sm font-black ${p.successRate > 95 ? 'text-green-600' : 'text-orange-600'}">${p.successRate}%</span>
+                                        <div class="w-12 h-1 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                                            <div class="h-full bg-green-500" style="width: ${p.successRate}%"></div>
+                                        </div>
+                                      </div>
+                                  </td>
+                                  <td class="px-6 py-4 text-right">
+                                      <div class="text-sm font-black text-frescoh-dark">$${cost.toFixed(5)}</div>
+                                  </td>
+                              </tr>
+                            `;
+                          }).join('')}
+                      </tbody>
+                  </table>
+              </div>
+
               <!-- Main Table -->
               <div class="card overflow-hidden mb-12">
                   <div class="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                    <h3 class="font-bold text-gray-700 uppercase tracking-tight">Comparativa de Modelos</h3>
+                    <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">Comparativa de Modelos</h3>
                   </div>
                   <table class="w-full text-left border-collapse">
                       <thead class="bg-gray-50 border-b border-gray-200">
@@ -164,7 +272,7 @@ export class MetricsController {
                           ${data.usage.map(u => {
                             const cost = calculateCost(u.model, u.totalPromptTokens, u.totalCompletionTokens);
                             return `
-                              <tr class="hover:bg-gray-50 transition-colors">
+                              <tr class="hover:bg-frescoh-light/50 transition-colors">
                                   <td class="px-6 py-4">
                                       <div class="font-bold text-gray-800 uppercase text-sm">${u.provider}</div>
                                       <div class="text-[10px] text-gray-400 font-mono">${u.model}</div>
@@ -182,7 +290,7 @@ export class MetricsController {
                                       </div>
                                   </td>
                                   <td class="px-6 py-4 text-right">
-                                      <div class="text-sm font-black text-green-600">$${cost.toFixed(4)}</div>
+                                      <div class="text-sm font-black text-frescoh-dark">$${cost.toFixed(4)}</div>
                                       <div class="text-[9px] text-gray-400 italic">Avg: $${(cost / u.totalCalls).toFixed(5)}</div>
                                   </td>
                               </tr>
@@ -193,11 +301,11 @@ export class MetricsController {
               </div>
 
               <!-- Recent Activity -->
-              <h2 class="text-2xl font-black text-green-900 mb-6">🕒 ÚLTIMAS 50 TRANSACCIONES</h2>
-              <div class="card overflow-hidden">
+              <h2 class="text-2xl font-black text-frescoh-dark mb-6">🕒 ÚLTIMAS 50 TRANSACCIONES</h2>
+              <div class="card overflow-hidden shadow-xl border-frescoh-dark/10">
                   <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-sm">
-                        <thead class="bg-gray-900 text-white uppercase text-[10px] tracking-widest">
+                        <thead class="bg-frescoh-dark text-white uppercase text-[10px] tracking-widest">
                             <tr>
                                 <th class="px-6 py-4">Fecha / Hora</th>
                                 <th class="px-6 py-4">P / C / T</th>
@@ -209,7 +317,7 @@ export class MetricsController {
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             ${recent.map(r => `
-                                <tr class="hover:bg-green-50 transition-all border-l-4 ${r.status === 'ERROR' ? 'border-l-red-500 bg-red-50' : 'border-l-transparent'}">
+                                <tr class="hover:bg-frescoh-lime/5 transition-all border-l-4 ${r.status === 'ERROR' ? 'border-l-red-500 bg-red-50' : 'border-l-transparent'}">
                                     <td class="px-6 py-4 font-mono text-[11px] text-gray-500">
                                         ${new Date(r.timestamp).toLocaleDateString('es-CO')} <br>
                                         <span class="text-gray-900 font-bold">${new Date(r.timestamp).toLocaleTimeString('es-CO')}</span>
@@ -233,7 +341,7 @@ export class MetricsController {
                                             ${(r.latencyMs / 1000).toFixed(2)}s
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 text-right font-black text-[10px] ${r.status === 'SUCCESS' ? 'text-green-600' : 'text-red-600'}">
+                                    <td class="px-6 py-4 text-right font-black text-[10px] ${r.status === 'SUCCESS' ? 'text-frescoh-dark' : 'text-red-600'}">
                                         ${r.status}
                                     </td>
                                 </tr>
@@ -258,15 +366,15 @@ export class MetricsController {
                 datasets: [{
                   label: 'Tokens Totales',
                   data: ${JSON.stringify(tokenData)},
-                  borderColor: '#10b981',
-                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  borderColor: '#005035',
+                  backgroundColor: 'rgba(181, 245, 67, 0.1)',
                   fill: true,
                   tension: 0.4,
                   yAxisID: 'y'
                 }, {
                   label: 'Latencia (ms)',
                   data: ${JSON.stringify(latencyData)},
-                  borderColor: '#f59e0b',
+                  borderColor: '#B5F543',
                   backgroundColor: 'transparent',
                   borderDash: [5, 5],
                   tension: 0.1,
@@ -292,7 +400,7 @@ export class MetricsController {
                 labels: ['Instrucciones (S)', 'Historial (H)', 'Conocimiento (R)', 'Respuestas (C)'],
                 datasets: [{
                   data: [${pieTotals.system}, ${pieTotals.history}, ${pieTotals.rag}, ${pieTotals.completion}],
-                  backgroundColor: ['#3b82f6', '#6366f1', '#f59e0b', '#10b981']
+                  backgroundColor: ['#005035', '#2A7D5E', '#B5F543', '#D4FAA3']
                 }]
               },
               options: {

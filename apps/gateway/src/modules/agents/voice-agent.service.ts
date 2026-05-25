@@ -92,7 +92,7 @@ export class VoiceAgentService {
       const response = await this.aiService.getResponse([
         ...(history as any[]),
         systemPrompt,
-      ]);
+      ], 'voice_synthesis');
       return {
         from: 'fulfillment-agent' as any,
         to: request.from,

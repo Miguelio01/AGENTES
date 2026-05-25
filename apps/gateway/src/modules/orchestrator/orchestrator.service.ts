@@ -77,7 +77,7 @@ REGLAS ESTRICTAS:
 - Formato esperado: {"nombre": "...", "celular": "...", "direccion": "...", "items": [{"product": "...", "quantity": 1}]}
 `;
 
-      const extractionResult = await this.aiService.generateText(prompt);
+      const extractionResult = await this.aiService.generateText(prompt, 'telegram_order_extraction');
       this.logger.log(`🤖 Extracción LLM: ${extractionResult}`);
 
       try {
@@ -290,9 +290,10 @@ REGLAS ESTRICTAS:
     const userMessages = session.history.filter(m => m.role === 'user');
     const isFirstContact = userMessages.length === 1;
     const isLandingPage = content.includes('vengo de su página de enlaces');
+    const isVeryShort = content.split(' ').length < 2;
 
-    if (isFirstContact && !isCatalogOrder && !isLandingPage) {
-      this.logger.log(`🚀 Zero Token: Primer contacto detectado. Enviando saludo fijo.`);
+    if (isFirstContact && !isCatalogOrder && !isLandingPage && session.flowState === 'IDLE' && isVeryShort) {
+      this.logger.log(`🚀 Zero Token: Primer contacto real detectado. Enviando saludo fijo.`);
       const fixedGreeting = Message.create({
         content: `¡Hola sumercé! Qué bueno verlo por acá. Por favor haga su pedido por el *Catálogo* que encuentra aquí arribita. ⬆️👆\n\n¡Es más fácil y rápido! Pero si prefiere por aquí, con gusto lo atiendo. ¿Qué se le antoja llevar hoy?`,
         role: 'assistant',
@@ -389,7 +390,52 @@ REGLAS ESTRICTAS:
         totalRegex.test(content) || isCatalogOrder // Forzar liquidación si es catálogo
       );
 
-      // RESPUESTA DIRECTA SIN PASAR POR VOICE AGENT (IA) PARA PAGOS
+      // SI EL ADK YA GENERÓ UNA RESPUESTA, USARLA (Respetar personalidad y lógica de Python)
+      if (salesResponse.data.phase === 'ADK_MANAGED' && salesResponse.data.content) {
+        this.logger.log(`🧠 Usando respuesta generada por ADK Core.`);
+        
+        const reply = Message.create({
+          content: salesResponse.data.content,
+          role: 'assistant',
+          channel: message.channel
+        });
+        
+        await presenceCallback(false);
+        session.addMessage(reply);
+        
+        // Sincronizar estado para esperar pago
+        session.setFlowState('AWAITING_PAYMENT_PROOF');
+        session.metadata = session.metadata || {};
+        session.metadata.currentOrderItems = salesResponse.data.items || message.metadata?.orderItems || session.metadata.currentOrderItems || [];
+        
+        // Aún así, si es catálogo, registramos en prepago en segundo plano
+        if (isCatalogOrder && !session.metadata?.registeredInPrepago) {
+            this.logger.log(`✅ Registrando pedido de catálogo en segundo plano (vía ADK response)...`);
+            const itemsToRegister = session.metadata.currentOrderItems;
+            const orderId = session.metadata?.currentOrderId || `ORD-${Date.now().toString().slice(-6)}`;
+            
+            try {
+              await this.salesAgent.handleRequest({
+                from: 'fresquitoh-orchestrator',
+                to: 'fulfillment-agent' as any,
+                action: 'register_prepaid',
+                context: { clientId: client.id, orderId },
+                data: { items: itemsToRegister },
+              });
+              session.metadata.registeredInPrepago = true;
+              session.metadata.currentOrderId = orderId;
+              session.metadata.orderDate = new Date().toISOString();
+            } catch (e: any) {
+              this.logger.error(`❌ Error en registro background: ${e.message}`);
+            }
+        }
+
+        await this.sessionsService.update(session);
+        await replyCallback(reply);
+        return;
+      }
+
+      // RESPUESTA DIRECTA (TEMPLATE) SOLO SI NO ES ADK_MANAGED
       if (salesResponse.data.phase === 'BILLING' || isCatalogOrder) {
         const externalTotal = Number(message.metadata?.externalTotal || 0);
         const salesSubtotal = Number(salesResponse.data.subtotal || 0);
@@ -478,11 +524,11 @@ REGLAS ESTRICTAS:
            paymentMsg += `⚠️ *Sumercé, como vio arribita, no me alcanzó para todo lo que pidió.* ¿Quiere que le anote lo que faltó en la lista de cosecha para avisarle apenas tengamos más? (Dígame *Sí* o *No*)\n\n`;
         }
 
-        paymentMsg += `🏦 *MEDIOS DE PAGO:*\n`;
-        paymentMsg += `1. *Transferencia Bancolombia:* Ahorros 123-456789-01\n`;
-        paymentMsg += `2. *Pago por Llave (Transfiya):* Al número 312 456 7890 (¡Funciona desde cualquier banco!)\n`;
-        paymentMsg += `3. *QR:* (No disponible por el momento)\n\n`;
-        paymentMsg += `Sumercé, apenas haga el pago me manda el soporte por aquí mismo para agendar su entrega. ¡Muchas gracias!`;
+        paymentMsg += `🏦 *MEDIOS DE PAGO DISPONIBLES:*\n`;
+        paymentMsg += `1. *Transferencia Bancolombia:* Ahorros 571 000051 61\n`;
+        paymentMsg += `2. *Pago por Llave (Bre-B):* @frescoh\n`;
+        paymentMsg += `3. *Código QR:* (A continuación se lo comparto sumercé)\n\n`;
+        paymentMsg += `Apenas realice el paguito, por favor me manda el comprobante por aquí mismo para agendar su entrega. ¡Muchas gracias! [SEND_QR]`;
 
         const reply = Message.create({
           content: paymentMsg,
@@ -569,6 +615,20 @@ REGLAS ESTRICTAS:
           client,
           isTotalRequest // Pasamos la detección aquí
         );
+
+        // --- MANEJO ADK ---
+        if (salesResponse.data?.phase === 'ADK_MANAGED') {
+          const reply = Message.create({
+            content: salesResponse.data.content,
+            role: 'assistant',
+            channel: message.channel,
+          });
+          await presenceCallback(false);
+          session.addMessage(reply);
+          await this.sessionsService.update(session);
+          await replyCallback(reply);
+          return;
+        }
 
         // Priorizar el estado de la venta sobre la intención original
         agentFact = { 
@@ -774,7 +834,7 @@ REGLAS ESTRICTAS:
         extraction = await this.aiService.getResponse([
           ...session.history.slice(-10),
           extractionPrompt,
-        ]);
+        ], 'product_extraction');
         
         const content = extraction.content.trim();
         const jsonMatch = content.match(/\[.*\]/s);
@@ -924,7 +984,7 @@ REGLAS ESTRICTAS:
       });
 
       try {
-        const extraction = await this.aiService.getResponse([extractionPrompt]);
+        const extraction = await this.aiService.getResponse([extractionPrompt], 'customer_data_extraction');
         const content = extraction.content.trim();
         const jsonMatch = content.match(/\{.*\}/s);
         
@@ -1328,19 +1388,24 @@ REGLAS ESTRICTAS:
     } else {
       const d1 = config['DIAS_ENTREGA_1'] || 'Jueves';
       const d2 = config['DIAS_ENTREGA_2'] || 'Lunes';
-      const hasOutOfStock = items.some(i => i.isOutOfStock || (i.stock !== undefined && i.stock <= 0) || i.available === false);
       
       const now = new Date();
-      const today = now.getDay(); 
+      const today = now.getDay(); // 0=Dom, 1=Lun, 2=Mar, 3=Mie, 4=Jue, 5=Vie, 6=Sab
 
-      if (today >= 1 && today <= 3) {
-        date = hasOutOfStock ? d2 : d1;
-      } else if (today >= 4 && today <= 6) {
-        date = hasOutOfStock ? d1 : d2;
+      // Lógica solicitada:
+      // Martes (2) o Miércoles (3) -> Entrega el Jueves (d1)
+      // Viernes (5) o Sábado (6) -> Entrega el Lunes (d2)
+      if (today === 2 || today === 3) {
+        date = d1;
+      } else if (today === 5 || today === 6) {
+        date = d2;
+      } else if (today === 1) {
+        date = d1; // Lunes -> Jueves
       } else {
-        date = hasOutOfStock ? d2 : d1; // Domingo
+        date = d2; // Jueves o Domingo -> Lunes
       }
-      this.logger.log(`📅 Fecha de entrega calculada: ${date} (D1: ${d1}, D2: ${d2}, OutOfStock: ${hasOutOfStock})`);
+      
+      this.logger.log(`📅 Fecha de entrega calculada: ${date} (D1: ${d1}, D2: ${d2}, Hoy: ${today})`);
     }
 
     // Validación final de seguridad contra valores basura como "frutas"

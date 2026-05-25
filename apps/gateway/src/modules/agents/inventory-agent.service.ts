@@ -222,6 +222,26 @@ export class InventoryAgentService {
 
     const allProducts = await this.inventoryProvider.listProducts();
     
+    // --- NUEVO: Caso especial para Catálogo Completo ---
+    if (productName === 'TODOS') {
+      const available = allProducts.filter(p => p.stock > 0);
+      return {
+        from: 'inventory-agent',
+        to: request.from,
+        status: 'SUCCESS',
+        data: {
+          available: true,
+          message: 'Catálogo cargado con éxito',
+          availableProducts: available.map(p => ({
+            name: p.name,
+            price: p.price,
+            presentation: p.packagingType,
+            stock: p.stock
+          }))
+        } as any
+      };
+    }
+    
     // 0. PRIORIDAD MÁXIMA: Match por ID exacto (Catálogo / SKU)
     if (productId) {
       const idMatch = allProducts.find(p => p.id === productId || p.id === productId.toUpperCase());
@@ -394,6 +414,9 @@ export class InventoryAgentService {
       }
     }
 
+    const weightPerUnit = product.weightGrams || 0;
+    const totalWeightKilos = (product.stock * weightPerUnit) / 1000;
+
     return {
       from: 'inventory-agent',
       to: from,
@@ -405,7 +428,9 @@ export class InventoryAgentService {
         availableQuantity,
         missingQuantity,
         presentation,
-        currentStock: product.stock,
+        currentStock: product.stock, // Estas son UNIDADES (cajas, bolsas, etc)
+        weightPerUnitGrams: weightPerUnit,
+        totalWeightAvailableKilos: totalWeightKilos,
         pricePerUnit: product.price,
         totalPrice: product.price * availableQuantity,
         currency: 'COP',

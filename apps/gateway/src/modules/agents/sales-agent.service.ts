@@ -1,5 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-
+import { Injectable, Logger, Inject, OnModuleInit } from '@nestjs/common';
 import {
   AgentRequest,
   AgentResponse,
@@ -9,10 +8,13 @@ import {
 } from '@agentes/domain';
 import type { IClientRepository, IInventoryProvider } from '@agentes/domain';
 import { InventoryAgentService } from './inventory-agent.service';
+import { ConfigService } from '@nestjs/config';
+import httpx from 'axios'; // Usaremos axios ya que es común en NestJS
 
 @Injectable()
-export class SalesAgentService {
+export class SalesAgentService implements OnModuleInit {
   private readonly logger = new Logger(SalesAgentService.name);
+  private adkUrl: string;
 
   constructor(
     private readonly inventoryAgent: InventoryAgentService,
@@ -20,12 +22,52 @@ export class SalesAgentService {
     private readonly clientRepository: IClientRepository,
     @Inject(INVENTORY_PROVIDER_PORT)
     private readonly inventoryProvider: IInventoryProvider,
+    private readonly configService: ConfigService,
   ) {}
+
+  onModuleInit() {
+    this.adkUrl = this.configService.get<string>('ADK_SALES_AGENT_URL') || 'http://localhost:8000';
+  }
 
   async handleRequest(request: AgentRequest): Promise<AgentResponse> {
     this.logger.log(
       `🛒 Sales Agent gestionando proceso de venta: ${request.action}`,
     );
+
+    // --- INTEGRACIÓN ADK (PYTHON) ---
+    if (this.configService.get('USE_ADK_SALES_AGENT') === 'true' && request.action === 'manage_sale') {
+      try {
+        this.logger.log(`🧠 Delegando razonamiento a ADK Agent (Python) en ${this.adkUrl}...`);
+        
+        // Enriquecer el mensaje para el ADK con el contexto del pedido si existe
+        let enrichedMessage = request.context.lastMessage;
+        if (request.context.orderId) {
+            enrichedMessage = `[CONTEXTO DE PEDIDO ACTUAL: ID ${request.context.orderId}]\n` + enrichedMessage;
+        }
+
+        const response = await httpx.post(`${this.adkUrl}/run`, {
+          user_id: request.context.clientId,
+          session_id: `session-${request.context.clientId}`,
+          message: enrichedMessage,
+          client_id: request.context.clientId,
+          order_id: request.context.orderId,
+          items: request.data, // Pasar los items extraídos
+        }, { timeout: 15000 });
+
+        return {
+          from: 'sales-agent',
+          to: request.from,
+          status: 'SUCCESS',
+          data: {
+            content: response.data.reply,
+            phase: 'ADK_MANAGED',
+            items: request.data, // Retornar los items para que el orquestador sepa qué registrar
+          },
+        };
+      } catch (e) {
+        this.logger.error(`❌ Error llamando a ADK Sales Agent: ${e.message}. Usando fallback local.`);
+      }
+    }
 
     if (request.action === 'register_prepaid') {
       return this.handleRegisterPrepaid(request);

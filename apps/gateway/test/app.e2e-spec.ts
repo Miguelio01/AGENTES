@@ -1,16 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { ChannelsService } from '../src/modules/channels/channels.service';
+import { getModelToken } from '@nestjs/mongoose';
 
 describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(ChannelsService)
+      .useValue({
+        onModuleInit: vi.fn(),
+        onModuleDestroy: vi.fn(),
+      })
+      // Podríamos mockear modelos de Mongoose aquí si fuera necesario
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();

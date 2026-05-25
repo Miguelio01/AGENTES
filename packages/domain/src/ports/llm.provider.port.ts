@@ -23,6 +23,11 @@ export interface ILLMProvider {
   generateResponse(messages: Message[], options?: Record<string, any>): Promise<LLMResponse>;
 
   /**
+   * Genera embeddings (vectores) para un texto dado
+   */
+  generateEmbeddings(text: string): Promise<number[]>;
+
+  /**
    * Obtiene el nombre del proveedor (gemini, ollama, etc.)
    */
   getProviderName(): string;

@@ -11,6 +11,8 @@ import * as qrcode from 'qrcode-terminal';
 import { Boom } from '@hapi/boom';
 import { MongoClient } from 'mongodb';
 import { useMongoDBAuthState } from './mongodb-auth-state.adapter';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class WhatsAppAdapter implements IChannel {
   private sock: any;
@@ -285,7 +287,43 @@ export class WhatsAppAdapter implements IChannel {
     if (!this.isConnected) throw new Error('WhatsApp not connected');
     const typingDuration = Math.min(message.content.length * 15, 800);
     await new Promise(resolve => setTimeout(resolve, typingDuration));
-    await this.sock.sendMessage(recipientId, { text: message.content });
+
+    // PROCESAMIENTO DE TAGS TÉCNICOS
+    if (message.content.includes('[SEND_QR]')) {
+      const cleanText = message.content.replace('[SEND_QR]', '').trim();
+      if (cleanText) {
+        await this.sock.sendMessage(recipientId, { text: cleanText });
+      }
+
+      // Intentar enviar la imagen del QR
+      const possiblePaths = [
+        path.join(process.cwd(), 'apps/gateway/src/assets/qr_frescoh.png'),
+        path.join(process.cwd(), 'src/assets/qr_frescoh.png'),
+        path.join(process.cwd(), 'assets/qr_frescoh.png'),
+        path.join(process.cwd(), 'dist/apps/gateway/src/assets/qr_frescoh.png'),
+      ];
+
+      console.log(`🔍 [WhatsApp] Buscando QR en: ${process.cwd()}`);
+      let sent = false;
+      for (const qrPath of possiblePaths) {
+        if (fs.existsSync(qrPath)) {
+          console.log(`✅ [WhatsApp] QR encontrado en: ${qrPath}`);
+          await this.sock.sendMessage(recipientId, {
+            image: fs.readFileSync(qrPath),
+            caption: 'Código QR Bancolombia - Frescoh!'
+          });
+          sent = true;
+          break;
+        }
+      }
+
+      if (!sent) {
+        console.warn('⚠️ [WhatsApp] No se pudo encontrar qr_frescoh.png. Rutas intentadas:', possiblePaths);
+      }
+    } else {
+      await this.sock.sendMessage(recipientId, { text: message.content });
+    }
+    
     await this.sock.sendPresenceUpdate('paused', recipientId);
   }
 
@@ -312,6 +350,79 @@ export class WhatsAppAdapter implements IChannel {
         this.isConnected = false;
         console.log('🚪 WhatsApp: Sesión cerrada y credenciales locales invalidadas.');
       }
+    }
+  }
+
+  /**
+   * EXTRAE EL CATÁLOGO COMPLETO DE WHATSAPP BUSINESS
+   * Guarda los resultados en apps/gateway/src/assets/whatsapp_catalog.json
+   */
+  async exportCatalog(): Promise<any> {
+    if (!this.isConnected || !this.sock) {
+      throw new Error('Debe conectar WhatsApp primero sumercé.');
+    }
+
+    console.log('🔍 [WhatsApp] Iniciando extracción de catálogo nativo...');
+    try {
+      // Intentar obtener el catálogo propio
+      const businessOwnerJid = this.sock.user.id.split(':')[0] + '@s.whatsapp.net';
+      
+      // Baileys usa el método query para pedir el catálogo
+      const result = await this.sock.query({
+        tag: 'iq',
+        attrs: {
+          to: 's.whatsapp.net',
+          type: 'get',
+          xmlns: 'w:biz:catalog'
+        },
+        content: [
+          {
+            tag: 'product_list',
+            attrs: {
+              business_jid: businessOwnerJid
+            }
+          }
+        ]
+      });
+
+      // Parsear respuesta (esto depende de la versión de Baileys, pero el iq query es estándar)
+      // Como el parseo puede ser complejo, intentamos también con el método simplificado si existe
+      let products = [];
+      if (this.sock.getCatalog) {
+         const cat = await this.sock.getCatalog(businessOwnerJid);
+         products = cat.products || [];
+      } else {
+         // Si no, devolvemos el raw para depurar
+         products = result;
+      }
+
+      // Corrección de ruta absoluta sumercé (Fix Definitivo)
+      const currentCwd = process.cwd();
+      console.log(`🔍 [WhatsApp] Depurando CWD actual: ${currentCwd}`);
+
+      // Buscamos la raíz del proyecto (donde esté la carpeta apps)
+      let rootDir = currentCwd;
+      if (rootDir.includes('apps/gateway')) {
+        rootDir = rootDir.split('apps/gateway')[0];
+      }
+
+      // Construimos la ruta limpia hacia assets
+      const assetsDir = path.resolve(rootDir, 'apps/gateway/src/assets');
+      
+      console.log(`🔍 [WhatsApp] Ruta final de assets calculada: ${assetsDir}`);
+      
+      if (!fs.existsSync(assetsDir)) {
+        console.log(`📁 [WhatsApp] Creando directorio faltante: ${assetsDir}`);
+        fs.mkdirSync(assetsDir, { recursive: true });
+      }
+
+      const catalogPath = path.join(assetsDir, 'whatsapp_catalog.json');
+      fs.writeFileSync(catalogPath, JSON.stringify(products, null, 2));
+      console.log(`✅ [WhatsApp] Catálogo exportado con éxito a: ${catalogPath}`);
+      return products;
+    } catch (error: any) {
+      console.error('❌ [WhatsApp] Error extrayendo catálogo:', error.message);
+      throw error;
     }
   }
 }

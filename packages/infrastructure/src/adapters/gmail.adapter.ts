@@ -4,10 +4,13 @@ import { google } from 'googleapis';
 export class GmailAdapter implements IPaymentScanner {
   private gmail: any;
 
-  constructor(private readonly credentials: any) {
+  constructor(private readonly credentials: any, private readonly clientEmail?: string) {
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+      clientOptions: {
+        subject: clientEmail,
+      },
     });
     this.gmail = google.gmail({ version: 'v1', auth });
   }
@@ -74,8 +77,47 @@ export class GmailAdapter implements IPaymentScanner {
   async listRecentConfirmations(
     limit: number = 10,
   ): Promise<PaymentConfirmation[]> {
-    // Implementación para ver los últimos sin filtrar por monto
-    return [];
+    const today = new Date();
+    const afterDate = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
+    
+    // Búsqueda de términos bancarios comunes
+    const query = `(Transferencia OR Pago OR Recibido) after:${afterDate}`;
+
+    try {
+      if (!this.credentials || !this.credentials.private_key) return [];
+
+      const response = await this.gmail.users.messages.list({
+        userId: 'me',
+        q: query,
+        maxResults: limit,
+      });
+
+      if (!response.data.messages) return [];
+
+      const confirmations: PaymentConfirmation[] = [];
+      for (const msg of response.data.messages) {
+        const detail = await this.gmail.users.messages.get({ userId: 'me', id: msg.id });
+        const body = this.decodeMessageBody(detail.data);
+        
+        // Extraer monto (buscando números precedidos por $ o similares)
+        const amountMatch = body.match(/\$\s?([0-9.,]+)/);
+        const amount = amountMatch ? parseFloat(amountMatch[1].replace(/[.,]/g, '')) : 0;
+
+        if (amount > 0) {
+          confirmations.push({
+            id: msg.id,
+            amount,
+            timestamp: new Date(parseInt(detail.data.internalDate)),
+            provider: body.includes('Nequi') ? 'Nequi' : 'Bancolombia',
+            reference: this.extractReference(body),
+          });
+        }
+      }
+      return confirmations;
+    } catch (e) {
+      console.error('Error listing recent Gmail payments:', e);
+      return [];
+    }
   }
 
   private decodeMessageBody(message: any): string {

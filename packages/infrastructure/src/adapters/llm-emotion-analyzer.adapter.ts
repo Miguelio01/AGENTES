@@ -1,9 +1,30 @@
 import { IEmotionAnalyzer, EmotionalState, ILLMProvider, Emotion, Message } from '@agentes/domain';
+import axios from 'axios';
 
 export class LlmEmotionAnalyzerAdapter implements IEmotionAnalyzer {
-  constructor(private readonly llmProvider: ILLMProvider) {}
+  constructor(
+    private readonly llmProvider: ILLMProvider,
+    private readonly adkUrl?: string
+  ) {}
 
   async analyze(text: string): Promise<EmotionalState> {
+    if (this.adkUrl) {
+      try {
+        const response = await axios.post(`${this.adkUrl}/analyze-emotion`, {
+          message: text
+        }, { timeout: 5000 });
+        
+        const data = response.data;
+        return new EmotionalState(
+          data.emotion as Emotion,
+          data.intensity,
+          data.reason
+        );
+      } catch (error: any) {
+        console.warn('Fallback to LLM for emotion analysis due to ADK error:', error.message);
+      }
+    }
+
     const promptText = `
       Analiza el siguiente mensaje de un cliente y determina su estado emocional.
       Debes priorizar la detección de emociones relevantes para la atención al cliente.

@@ -82,7 +82,7 @@ export class KnowledgeAgentService {
     const classification = await this.aiService.getResponse([
       ...history.slice(-4),
       classificationPrompt,
-    ]);
+    ], 'intent_classification');
     const rawIntent = classification.content.trim();
     
     // Robustez: Buscar la etiqueta INTENT_ dentro del texto por si el modelo alucina explicaciones

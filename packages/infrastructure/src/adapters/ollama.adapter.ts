@@ -4,11 +4,25 @@ import axios from 'axios';
 export class OllamaProvider implements ILLMProvider {
   constructor(
     private readonly baseUrl: string = 'http://localhost:11434',
-    private readonly model: string = 'llama3'
+    private readonly model: string = 'llama3',
+    private readonly embeddingModel: string = 'nomic-embed-text'
   ) {}
 
   getProviderName(): string {
     return `ollama-${this.model}`;
+  }
+
+  async generateEmbeddings(text: string): Promise<number[]> {
+    try {
+      const response = await axios.post(`${this.baseUrl}/api/embeddings`, {
+        model: this.embeddingModel,
+        prompt: text,
+      });
+      return response.data.embedding;
+    } catch (error: any) {
+      console.error('Ollama Embedding Error:', error.message);
+      throw error;
+    }
   }
 
   async generateResponse(messages: Message[], options?: Record<string, any>): Promise<LLMResponse> {

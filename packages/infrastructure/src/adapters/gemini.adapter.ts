@@ -10,6 +10,13 @@ export class GeminiProvider implements ILLMProvider {
     this.model = this.genAI.getGenerativeModel({ model: modelName });
   }
 
+  async generateEmbeddings(text: string): Promise<number[]> {
+    const embeddingModel = this.genAI.getGenerativeModel({ model: 'text-embedding-004' });
+    const result = await embeddingModel.embedContent(text);
+    const embedding = result.embedding;
+    return embedding.values;
+  }
+
   getProviderName(): string {
     return 'gemini';
   }

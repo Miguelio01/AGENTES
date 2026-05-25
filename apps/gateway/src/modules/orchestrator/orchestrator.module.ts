@@ -6,6 +6,7 @@ import { SessionsModule } from '../sessions/sessions.module';
 import { ClientsModule } from '../clients/clients.module';
 import { AgentsModule } from '../agents/agents.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
 
 @Module({
@@ -15,20 +16,21 @@ import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
     ClientsModule,
     AgentsModule,
     InventoryModule,
+    ConfigModule,
   ],
   providers: [
     OrchestratorService,
     {
       provide: 'IEmotionAnalyzer',
-      useFactory: (aiService: AiService) => {
-        // En lugar de pasar el provider ahora, pasamos un proxy o el servicio
-        // Para este caso, creamos un objeto que cumpla con ILLMProvider pero delegue al aiService
+      useFactory: (aiService: AiService, configService: ConfigService) => {
         const lazyProvider = {
-          generateResponse: (messages) => aiService.getResponse(messages),
+          generateResponse: (messages) => aiService.getResponse(messages, 'emotion_analysis'),
         };
-        return new LlmEmotionAnalyzerAdapter(lazyProvider as any);
+        const adkUrl = configService.get<string>('ADK_SALES_AGENT_URL') || 'http://localhost:8000';
+        const useAdk = configService.get<string>('USE_ADK_EMOTION_ANALYZER') === 'true';
+        return new LlmEmotionAnalyzerAdapter(lazyProvider as any, useAdk ? adkUrl : undefined);
       },
-      inject: [AiService],
+      inject: [AiService, ConfigService],
     },
   ],
   exports: [OrchestratorService],

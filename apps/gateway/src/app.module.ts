@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { validate } from './shared/config/config.validator';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -14,6 +15,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { RemindersModule } from './modules/reminders/reminders.module';
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { FinanceModule } from './modules/finance/finance.module';
       validate,
     }),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -38,6 +41,7 @@ import { FinanceModule } from './modules/finance/finance.module';
     MetricsModule,
     OrchestratorModule,
     FinanceModule,
+    RemindersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

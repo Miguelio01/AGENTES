@@ -10,7 +10,7 @@ import {
 } from '@agentes/infrastructure';
 
 @Injectable()
-export class AiService implements OnModuleInit {
+export class AiService {
   private readonly logger = new Logger(AiService.name);
   private provider: ILLMProvider;
 
@@ -18,9 +18,11 @@ export class AiService implements OnModuleInit {
     private readonly configService: ConfigService,
     @Inject(AI_METRIC_REPOSITORY_PORT)
     private readonly metricRepository: IAiMetricRepository,
-  ) {}
+  ) {
+    this.initializeProvider();
+  }
 
-  onModuleInit() {
+  private initializeProvider() {
     const providerType = this.configService.get<string>('LLM_PROVIDER') || 'OLLAMA';
     
     if (providerType === 'NVIDIA') {
@@ -55,7 +57,7 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  async getResponse(messages: Message[]) {
+  async getResponse(messages: Message[], promptTag?: string) {
     if (!this.provider) {
       throw new Error('LLM Provider not initialized');
     }
@@ -116,7 +118,7 @@ export class AiService implements OnModuleInit {
     }
 
     this.logger.log(
-      `🤖 Generando respuesta con ${this.provider.getProviderName()} (${optimizedMessages.length} msg, Est. P: ${usageBreakdown.system + usageBreakdown.history + usageBreakdown.rag} tokens)...`,
+      `🤖 Generando respuesta con ${this.provider.getProviderName()} (${optimizedMessages.length} msg, Tag: ${promptTag || 'none'}, Est. P: ${usageBreakdown.system + usageBreakdown.history + usageBreakdown.rag} tokens)...`,
     );
     
     const startTime = Date.now();
@@ -125,27 +127,27 @@ export class AiService implements OnModuleInit {
       const latencyMs = Date.now() - startTime;
 
       // Guardar métrica de forma asíncrona (no bloqueante)
-      this.recordMetric(optimizedMessages, response, latencyMs, usageBreakdown).catch(err => 
+      this.recordMetric(optimizedMessages, response, latencyMs, usageBreakdown, promptTag).catch(err => 
         this.logger.error('Error recording AI metric:', err.message)
       );
 
       return response;
     } catch (error: any) {
       const latencyMs = Date.now() - startTime;
-      this.recordErrorMetric(optimizedMessages, error, latencyMs).catch(() => {});
+      this.recordErrorMetric(optimizedMessages, error, latencyMs, promptTag).catch(() => {});
       this.logger.error(`❌ Error en proveedor LLM: ${error.message}`);
       throw error;
     }
   }
 
-  async generateText(prompt: string): Promise<string> {
+  async generateText(prompt: string, promptTag?: string): Promise<string> {
     const message = Message.create({
       role: 'user',
       content: prompt,
       channel: 'system'
     });
     
-    const response = await this.getResponse([message]);
+    const response = await this.getResponse([message], promptTag);
     return response.content;
   }
 
@@ -156,13 +158,14 @@ export class AiService implements OnModuleInit {
     return Math.ceil(content.length / 4);
   }
 
-  private async recordMetric(messages: Message[], response: any, latencyMs: number, breakdown?: any) {
+  private async recordMetric(messages: Message[], response: any, latencyMs: number, breakdown?: any, promptTag?: string) {
     try {
       const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
       
       const metric = AiMetric.create({
         provider: this.provider.getProviderName(),
         model: response.usage?.model || 'unknown',
+        promptTag,
         promptTokens: response.usage?.promptTokens || 0,
         completionTokens: response.usage?.completionTokens || 0,
         totalTokens: response.usage?.totalTokens || 0,
@@ -181,12 +184,13 @@ export class AiService implements OnModuleInit {
     }
   }
 
-  private async recordErrorMetric(messages: Message[], error: any, latencyMs: number) {
+  private async recordErrorMetric(messages: Message[], error: any, latencyMs: number, promptTag?: string) {
     try {
       const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
       const metric = AiMetric.create({
         provider: this.provider?.getProviderName() || 'unknown',
         model: 'error',
+        promptTag,
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,

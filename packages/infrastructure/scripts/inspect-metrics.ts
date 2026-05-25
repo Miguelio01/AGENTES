@@ -23,7 +23,7 @@ async function inspectMetrics() {
 
     metrics.reverse().forEach((m, i) => {
       const date = new Date(m.timestamp).toLocaleTimeString();
-      console.log(`[${i+1}] ${date} | Mod: ${m.model}`);
+      console.log(`[${i+1}] ${date} | Mod: ${m.model} | Tag: ${m.promptTag || 'none'}`);
       console.log(`    Prompt: ${m.promptTokens} | Comp: ${m.completionTokens} | Total: ${m.totalTokens}`);
       console.log(`    Desglose (S/H/R): ${m.systemTokens || 0} / ${m.historyTokens || 0} / ${m.ragTokens || 0}`);
       console.log(`    Snippet: "${m.promptSnippet?.substring(0, 60)}..."`);

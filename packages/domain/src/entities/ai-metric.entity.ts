@@ -3,6 +3,7 @@ export interface AiMetricProps {
   timestamp: Date;
   provider: string;
   model: string;
+  promptTag?: string;
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
@@ -29,6 +30,7 @@ export class AiMetric {
   get timestamp() { return this.props.timestamp; }
   get provider() { return this.props.provider; }
   get model() { return this.props.model; }
+  get promptTag() { return this.props.promptTag; }
   get promptTokens() { return this.props.promptTokens; }
   get completionTokens() { return this.props.completionTokens; }
   get totalTokens() { return this.props.totalTokens; }

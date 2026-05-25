@@ -14,6 +14,8 @@ export * from './ports/channel.port';
 export * from './ports/llm.provider.port';
 export * from './ports/agent.repository.port';
 export * from './ports/client.repository.port';
+export * from './ports/ai-metric.repository.port';
+export * from './ports/knowledge.repository.port';
 export * from './ports/session.repository.port';
 export * from './entities/ai-metric.entity';
 export * from './ports/ai-metric.repository.port';

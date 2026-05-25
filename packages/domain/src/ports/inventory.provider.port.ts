@@ -42,6 +42,8 @@ export interface InventoryCheckResult {
   availableQuantity?: number;
   missingQuantity?: number;
   currency?: string;
+  weightPerUnitGrams?: number;
+  totalWeightAvailableKilos?: number;
   }
 export interface IInventoryProvider {
   /**

@@ -196,6 +196,30 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
+      if (contentLow === '/exportar-catalogo') {
+        this.logger.log('📦 Admin solicitó exportación de catálogo...');
+        try {
+          if (this.whatsapp) {
+            const products = await this.whatsapp.exportCatalog();
+            const count = Array.isArray(products) ? products.length : 'varios';
+            await this.sendMessage(Message.create({
+              content: `✅ ¡Listo jefe! Se han exportado ${count} productos del catálogo de WhatsApp Business a un archivo JSON.`,
+              role: 'assistant',
+              channel: 'telegram'
+            }), senderId, 'telegram');
+          }
+        } catch (error: any) {
+          this.logger.error(`❌ Error exportando catálogo: ${error.message}`);
+          const cleanError = error.message.replace(/[_*`[\]]/g, '\\$&');
+          await this.sendMessage(Message.create({
+            content: `❌ Error sumercé: ${cleanError}`,
+            role: 'assistant',
+            channel: 'telegram'
+          }), senderId, 'telegram');
+        }
+        return;
+      }
+
       if (message.content.toLowerCase().includes('/atendido')) {
         const parts = message.content.split(' ');
         const targetClientId = parts[1]; // Opcional

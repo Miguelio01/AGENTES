@@ -47,4 +47,8 @@ export class SessionsService {
   async findLastByClientId(clientId: string): Promise<Session | null> {
     return this.sessionRepository.findLastByClientId(clientId);
   }
+
+  async findActiveSessionsByState(state: string): Promise<Session[]> {
+    return this.sessionRepository.findActiveByState(state);
+  }
 }

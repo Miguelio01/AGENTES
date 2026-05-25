@@ -9,6 +9,7 @@ export class MongoAiMetricRepository implements IAiMetricRepository {
       timestamp: metric.timestamp,
       provider: metric.provider,
       model: metric.model,
+      promptTag: metric.promptTag,
       promptTokens: metric.promptTokens,
       completionTokens: metric.completionTokens,
       totalTokens: metric.totalTokens,
@@ -21,6 +22,41 @@ export class MongoAiMetricRepository implements IAiMetricRepository {
       status: metric.status,
     });
     await doc.save();
+  }
+
+  async getPromptEfficiency(days: number = 7): Promise<any[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    return this.metricModel.aggregate([
+      { $match: { timestamp: { $gte: startDate } } },
+      {
+        $group: {
+          _id: { promptTag: '$promptTag' },
+          totalCalls: { $sum: 1 },
+          avgLatencyMs: { $avg: '$latencyMs' },
+          avgPromptTokens: { $avg: '$promptTokens' },
+          avgCompletionTokens: { $avg: '$completionTokens' },
+          totalTokens: { $sum: '$totalTokens' },
+          successRate: {
+            $avg: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] },
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          promptTag: { $ifNull: ['$_id.promptTag', 'unlabeled'] },
+          totalCalls: 1,
+          totalTokens: 1,
+          avgLatencyMs: { $round: ['$avgLatencyMs', 2] },
+          avgPromptTokens: { $round: ['$avgPromptTokens', 0] },
+          avgCompletionTokens: { $round: ['$avgCompletionTokens', 0] },
+          successRate: { $round: [{ $multiply: ['$successRate', 100] }, 2] },
+        },
+      },
+      { $sort: { totalCalls: -1 } },
+    ]);
   }
 
   async getUsageSummary(days: number = 7): Promise<any> {
@@ -83,6 +119,7 @@ export class MongoAiMetricRepository implements IAiMetricRepository {
       timestamp: d.timestamp,
       provider: d.provider,
       model: d.model,
+      promptTag: d.promptTag,
       promptTokens: d.promptTokens,
       completionTokens: d.completionTokens,
       totalTokens: d.totalTokens,

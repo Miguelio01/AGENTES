@@ -96,6 +96,25 @@ export class MongoSessionRepository implements ISessionRepository {
     });
   }
 
+  async findActiveByState(state: string): Promise<Session[]> {
+    const docs = await this.sessionModel.find({ flowState: state, status: 'active' });
+    return docs.map(doc => new Session({
+      id: doc._id,
+      clientId: doc.clientId,
+      agentId: doc.agentId,
+      history: doc.history.map((m: any) => new Message(m)),
+      status: doc.status,
+      flowState: doc.flowState,
+      emotionalState: new EmotionalState(
+        doc.emotionalState.emotion,
+        doc.emotionalState.intensity,
+        doc.emotionalState.reason
+      ),
+      metadata: doc.metadata,
+      lastActivity: doc.lastActivity,
+    }));
+  }
+
   async findAll(): Promise<Session[]> {
     const docs = await this.sessionModel.find();
     return docs.map(doc => new Session({

@@ -8,6 +8,7 @@ import { SalesAgentService } from './sales-agent.service';
 import { VoiceAgentService } from './voice-agent.service';
 import { FinanceAgentService } from './finance-agent.service';
 import { AgentsController } from './agents.controller';
+import { InternalToolsController } from './internal-tools.controller';
 import { AgentSchema, MongoAgentRepository } from '@agentes/infrastructure';
 import { AGENT_REPOSITORY_PORT } from '@agentes/domain';
 import { getModelToken } from '@nestjs/mongoose';
@@ -41,7 +42,7 @@ import { ClientsModule } from '../clients/clients.module';
       inject: [getModelToken('Agent')],
     },
   ],
-  controllers: [AgentsController],
+  controllers: [AgentsController, InternalToolsController],
   exports: [
     AgentsService,
     InventoryAgentService,

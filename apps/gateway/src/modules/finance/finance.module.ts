@@ -10,7 +10,8 @@ import * as path from 'path';
   providers: [
     {
       provide: PAYMENT_SCANNER_PORT,
-      useFactory: () => {
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
         let credentials = {};
         try {
           const credsRoute = path.join(process.cwd(), 'google-credentials.json');
@@ -21,7 +22,8 @@ import * as path from 'path';
           console.error('Error loading Google credentials for Gmail:', e);
         }
 
-        return new GmailAdapter(credentials);
+        const subject = configService.get<string>('GOOGLE_GMAIL_SUBJECT') || 'facturacion@frescoh.com';
+        return new GmailAdapter(credentials, subject);
       },
     },
   ],

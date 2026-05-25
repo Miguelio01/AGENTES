@@ -6,7 +6,18 @@ describe('SessionsService', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [SessionsService],
+      providers: [
+        SessionsService,
+        {
+          provide: 'ISessionRepository',
+          useValue: {
+            save: vi.fn(),
+            findActiveByClientId: vi.fn(),
+            findLastByClientId: vi.fn(),
+            findActiveByState: vi.fn(),
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<SessionsService>(SessionsService);
