@@ -34,6 +34,7 @@ export interface InventoryCheckResult {
   }>;
   // Compatibilidad con lógica anterior
   productName?: string;
+  productId?: string;
   unitsNeeded?: number;
   presentation?: string;
   currentStock?: number;

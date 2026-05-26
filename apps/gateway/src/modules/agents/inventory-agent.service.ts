@@ -182,15 +182,40 @@ export class InventoryAgentService {
         data: { message: 'Cliente no encontrado' },
       };
 
-    const items = request.data.items || [];
+    let items = request.data?.items;
+    
+    // Normalización: si items no es array pero data sí lo es, o si es un solo objeto
+    if (!Array.isArray(items)) {
+      if (Array.isArray(request.data)) {
+        items = request.data;
+      } else if (request.data?.productName) {
+        items = [{
+          product: request.data.productId || request.data.productName,
+          productName: request.data.productName,
+          quantity: request.data.missingQuantity || request.data.requestedQuantity || 1
+        }];
+      } else {
+        items = [];
+      }
+    }
+
+    if (items.length === 0) {
+      return {
+        from: 'inventory-agent',
+        to: request.from,
+        status: 'SUCCESS',
+        data: { message: 'No había items para anotar en la lista de espera' },
+      };
+    }
+
     const order = Order.create({
       clientId: client.id,
       agentId: 'inventory-agent',
       items: items.map((i: any) => ({
-        productId: i.product,
-        name: i.productName || i.product,
-        quantity: i.quantity,
-        price: i.pricePerUnit || 0,
+        productId: i.productId || i.product || i.productName,
+        name: i.productName || i.product || 'Producto',
+        quantity: i.quantity || i.missingQuantity || 1,
+        price: i.pricePerUnit || i.price || 0,
       })),
     });
 
@@ -426,6 +451,7 @@ export class InventoryAgentService {
       status,
       data: {
         available: availableQuantity > 0,
+        productId: product.id,
         productName: product.name,
         unitsNeeded,
         availableQuantity,
@@ -445,24 +471,51 @@ export class InventoryAgentService {
     request: AgentRequest<{ items: { productName: string; quantity: number }[] }>,
   ): Promise<AgentResponse> {
     const items = request.data?.items || [];
-    this.logger.log(`📦 Consultando stock por lote para ${items.length} productos`);
+    this.logger.log(`📦 Consultando stock por lote para ${items.length} productos (Optimizado)`);
     
-    const results = await Promise.all(
-      items.map(item => 
-        this.handleCheckStock({
-          ...request,
-          action: 'check_stock',
-          data: { productName: item.productName, requestedQuantity: item.quantity }
-        } as any)
-      )
-    );
+    // Obtener todos los productos una sola vez
+    const allProducts = await this.inventoryProvider.listProducts();
+    
+    const results = items.map(item => {
+      // Reutilizar lógica de búsqueda pero con la lista ya cargada
+      const product = this.findProductInList(allProducts, item.productName);
+      if (!product) {
+        return {
+          available: false,
+          productName: item.productName,
+          message: 'Producto no encontrado'
+        };
+      }
+      return this.processProductMatch(product, item.quantity, request.from as any).data;
+    });
 
     return {
       from: 'inventory-agent',
       to: request.from,
       status: 'SUCCESS',
-      data: { results: results.map(r => r.data) },
+      data: { results },
     };
+  }
+
+  private findProductInList(allProducts: ProductInventory[], productName: string): ProductInventory | null {
+    const normalize = (text: string) => (text || '')
+      .toLowerCase()
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
+      .replace(/un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco |unidades |uds |plus /gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const cleanSearch = normalize(productName).toUpperCase();
+    
+    // 1. Match exacto
+    const exact = allProducts.find(p => normalize(p.name).toUpperCase() === cleanSearch || p.id === cleanSearch);
+    if (exact) return exact;
+
+    // 2. Similitud
+    return allProducts.find(p => {
+      const pName = normalize(p.name).toUpperCase();
+      return cleanSearch.includes(pName) || pName.includes(cleanSearch);
+    }) || null;
   }
 
   private async handleReserveStock(

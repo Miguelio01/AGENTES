@@ -15,7 +15,7 @@ export class OrdersService {
       { new: true, upsert: true },
     );
 
-    const sequence = counter.seq.toString().padStart(4, '0');
+    const sequence = counter.seq.toString().padStart(6, '0');
     return `ORD-${sequence}`;
   }
 }

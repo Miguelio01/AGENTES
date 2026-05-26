@@ -222,7 +222,8 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       });
 
       const rows = response.data.values || [];
-      const row = rows.find((r: any) => r[6] === orderId);
+      // Buscar desde el final para evitar colisiones con IDs viejos (pruebas previas)
+      const row = [...rows].reverse().find((r: any) => r[6]?.trim() === orderId.trim());
 
       if (!row) return null;
 
@@ -231,15 +232,31 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
 
       const productLines = (row[3] || '').split('\n');
       const items = productLines.map((line: string) => {
-        const match = line.match(/- (\d+)x\s+(.+)/);
-        if (match) return { quantity: parseInt(match[1]), name: match[2].trim() };
+        // Limpiar caracteres invisibles de WhatsApp (ej: \u2060 Word Joiner)
+        const cleanLine = line.replace(/[^\x20-\x7E\u00A0-\u00FF•\-\*]/g, '');
+        const match = cleanLine.match(/[•\-\*]\s*(\d+)x\s+(.+)/);
+        if (match) {
+          const qty = parseInt(match[1]);
+          const nameWithPrice = match[2].trim();
+          // Limpiar precio si existe ($...)
+          const name = nameWithPrice.split('($')[0].trim();
+          return { quantity: qty, name };
+        }
         return null;
       }).filter(Boolean);
 
       const allProducts = await this.listProducts();
       const enrichedItems = items.map((item: any) => {
-        const found = allProducts.find(p => p.name === item.name);
-        return { ...item, productId: found ? found.id : item.name };
+        const itemName = item.name.toLowerCase().trim();
+        // 1. Match exacto
+        let found = allProducts.find(p => p.name.toLowerCase().trim() === itemName || p.id.toLowerCase() === itemName);
+        
+        // 2. Match por inclusión solo si es muy específico (> 5 caracteres)
+        if (!found && itemName.length > 5) {
+          found = allProducts.find(p => p.name.toLowerCase().includes(itemName));
+        }
+
+        return { ...item, productId: found ? found.id : item.name, name: found ? found.name : item.name };
       });
 
       return { id: orderId, clientId, items: enrichedItems };

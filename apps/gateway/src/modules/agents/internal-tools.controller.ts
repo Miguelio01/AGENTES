@@ -17,7 +17,8 @@ export class InternalToolsController {
   @Post('check-stock')
   async checkStock(@Body() data: { product: string; quantity: number, clientId: string, action?: string, items?: any[] }) {
     const action = (data.action as any) || 'check_stock';
-    this.logger.log(`🔧 Internal Tool: ${action} for ${data.product || data.items?.length + ' items'}`);
+    const identifier = data.items ? `${data.items.length} items` : (data.product || 'N/A');
+    this.logger.log(`🔧 Internal Tool: ${action} for ${identifier}`);
     
     const response = await this.inventoryAgent.handleRequest({
       from: 'adk-agent' as any,

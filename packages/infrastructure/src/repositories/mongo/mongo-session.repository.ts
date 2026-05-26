@@ -56,7 +56,7 @@ export class MongoSessionRepository implements ISessionRepository {
   }
 
   async findActiveByClientId(clientId: string): Promise<Session | null> {
-    const doc = await this.sessionModel.findOne({ clientId, status: 'active' });
+    const doc = await this.sessionModel.findOne({ clientId, status: 'active' }).sort({ lastActivity: -1 });
     if (!doc) return null;
     console.log(`📖 Sesión activa cargada para ${clientId}. ID Pedido: ${doc.metadata?.currentOrderId}`);
     return new Session({
