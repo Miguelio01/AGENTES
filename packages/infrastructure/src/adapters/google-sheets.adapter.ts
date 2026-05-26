@@ -134,7 +134,7 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       }
 
       const currentStock = parseInt(rows[rowIndex][2]) || 0;
-      const newStock = currentStock + quantityChange;
+      const newStock = Math.max(0, currentStock + quantityChange);
 
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
@@ -142,7 +142,7 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
         valueInputOption: 'USER_ENTERED',
         requestBody: { values: [[newStock]] }
       });
-      console.log(`✅ Stock actualizado para "${rows[rowIndex][1]}": ${currentStock} -> ${newStock}`);
+      console.log(`✅ Stock actualizado para "${rows[rowIndex][1]}": ${currentStock} -> ${newStock} (Ajuste: ${quantityChange})`);
     });
   }
 

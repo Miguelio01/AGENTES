@@ -193,7 +193,7 @@ export class OrderSaga {
       this.logger.log(`✅ Order ${event.orderId} moved to delivery list.`);
 
       const confirmationMessage = Message.create({
-        content: `¡Excelentes noticias *${client.name}*! Ya confirmamos su pago. Su pedido ya quedó anotado en la *Lista de Entrega* para el día *${deliveryDate}*. Pronto le estaremos avisando cuando salga el camión con su cosecha. ¡Muchas gracias por preferir Frescoh!`,
+        content: `¡Excelentes noticias *${client.name}*! Ya confirmamos su pago. Su pedido ya quedó en nuestra *lista de despacho*👍 para el día *${deliveryDate}*. Apenas vaya saliendo el envío, le aviso para que esté pendiente. ¡Muchas gracias por su compra!`,
         role: 'assistant',
         channel: 'whatsapp',
       });

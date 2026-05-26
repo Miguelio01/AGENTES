@@ -36,7 +36,7 @@ GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:3000")
 # --- HERRAMIENTAS OPTIMIZADAS ---
 async def check_inventory_batch(items: list[dict], tool_context: ToolContext) -> dict:
     """Verifica el stock de múltiples productos en una sola llamada (Batch)"""
-    client_id = tool_context.state.get("client_id", "anonymous")
+    client_id = tool_context.state.get("client_id") or tool_context.user_id or "anonymous"
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(
@@ -44,7 +44,25 @@ async def check_inventory_batch(items: list[dict], tool_context: ToolContext) ->
                 json={"items": items, "clientId": client_id},
                 timeout=25.0
             )
-            return response.json()
+            res_data = response.json()
+            
+            # Guardar en el estado para que el orquestador lo vea al final
+            if res_data.get("status") == "SUCCESS":
+                results = res_data.get("data", {}).get("results", [])
+                final_items = []
+                for r in results:
+                    # REGLA: Solo items con stock disponible entran al pedido real
+                    if r.get("availableQuantity", 0) > 0:
+                        final_items.append({
+                            "productId": r.get("productId") or r.get("productName"),
+                            "productName": r.get("productName"),
+                            "quantity": r.get("availableQuantity"),
+                            "pricePerUnit": r.get("pricePerUnit", 0)
+                        })
+                tool_context.state["final_items_to_register"] = final_items
+                logger.info(f"Items finales para registro guardados en estado: {len(final_items)}")
+            
+            return res_data
         except Exception as e: 
             logger.error(f"Error in batch stock check: {e}")
             return {"status": "ERROR", "message": "No pude revisar el lote de stock sumercé."}
@@ -87,7 +105,7 @@ async def get_payment_info(tool_context: ToolContext) -> dict:
         "status": "SUCCESS",
         "methods": {
             "transferencia": "Cuenta de Ahorros Bancolombia 571 000051 61",
-            "bre_b": "@frescoh (Llave Bancolombia)",
+            "bre_b": "@frescoh",
             "qr_tag": "[SEND_QR_FRESCOH]"
         },
         "instruction": "Usa estos datos para armar la respuesta según la guía de comunicación."
@@ -97,7 +115,6 @@ async def get_config(tool_context: ToolContext) -> dict:
     """Retorna la configuración global (Costo de domicilio, fechas, etc.)"""
     async with httpx.AsyncClient() as client:
         try:
-            # IMPORTANTE: Enviamos action: get_config explícitamente
             response = await client.post(
                 f"{GATEWAY_URL}/internal/tools/check-stock",
                 json={"action": "get_config", "product": "CONFIG", "quantity": 0, "clientId": "anonymous"},
@@ -113,6 +130,29 @@ async def get_config(tool_context: ToolContext) -> dict:
             logger.error(f"Error cargando config: {e}")
             return {"status": "ERROR", "message": "No pude cargar la configuración sumercé."}
 
+async def register_waitlist(items: list[dict], tool_context: ToolContext) -> dict:
+    """
+    Registra items agotados en la lista de espera de la cosecha.
+    Args:
+        items: Lista de objetos con {'productName': str, 'quantity': int}
+    """
+    client_id = tool_context.state.get("client_id") or tool_context.user_id or "anonymous"
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                f"{GATEWAY_URL}/internal/tools/check-stock",
+                json={
+                    "action": "register_waitlist", 
+                    "items": items, 
+                    "clientId": client_id
+                },
+                timeout=15.0
+            )
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error registrando lista de espera: {e}")
+            return {"status": "ERROR", "message": "No pude anotar su mercé en la lista de espera."}
+
 # --- AGENTES ---
 
 INSTRUCTIONS_BASE = """
@@ -123,42 +163,58 @@ REGLAS DE VOZ:
 - Usa 'sumercé' de forma natural.
 - Incorpora expresiones como 'qué dicha', 'fresquito', 'listico', 'qué buen antojo'.
 - Trato formal: Siempre usa 'usted', nunca 'tú'.
-- Si no encuentras información sobre un producto: '¡Ay sumercé! fíjese que no encuentro ese producto en mi lista de cosecha de hoy. ¿Será que me lo anotó bien o prefiere que revisemos qué más tengo fresquito?'
+
+REGLA DE ORO DE HONESTIDAD Y AYUDA (CRÍTICO):
+1. SOLO puedes hablar de los beneficios de las frutas y productos que vendemos.
+2. Si NO encuentras un producto en el inventario o el cliente pregunta algo fuera de tu base de conocimiento, DEBES responder exactamente así: 
+   '¡Ay, sumercé! Fíjese que no encuentro [Nombre del Producto o tema] en nuestra cosecha de hoy. Le invito a que visite el catálogo que está aquí arribita☝️; allá tenemos otros productos bien fresquitos esperando por usted.'
+3. Si el cliente insiste con una duda compleja que no puedes resolver, usa 'trigger_escalation'.
+4. NUNCA inventes información ni trates de adivinar precios.
 """
 
 INSTRUCTIONS_SALES = INSTRUCTIONS_BASE + """
-REGLAS DE LIQUIDACIÓN DETERMINISTA (PROTOCOLOS BLOQUEANTES):
-1. PRIORIDAD ABSOLUTA DE IDENTIDAD: El ID de pedido oficial es el que aparece en el bloque [ID DE PEDIDO ACTUAL: ...]. DEBES ignorar cualquier otro ID numérico largo que veas en el mensaje del cliente (esos son IDs de red, no de negocio).
-2. PRIORIDAD ABSOLUTA DE PRODUCTOS: Si el mensaje contiene un bloque de [PRODUCTOS YA EXTRAÍDOS...], DEBES usar ESOS datos para disparar las herramientas de inmediato. No intentes extraerlos de nuevo del texto.
-3. Si detectas un pedido, DEBES ejecutar este plan SIN HABLAR con el cliente hasta el final:
-   A. Llama a 'check_inventory_batch' con TODOS los items.
-   B. Llama a 'get_config' para el domicilio.
-   C. Llama a 'get_payment_info' para los datos bancarios.
-4. NUNCA respondas con frases como "Voy a consultar..." o "Ahora que tengo...". Simplemente ejecuta las herramientas.
-5. Si un producto tiene stock 0 o insuficiente, márcalo como $[Pendiente] o [Sin Stock] en el desglose y no lo sumes al total.
-6. Solo emite la respuesta final cuando tengas TODOS los datos de las 3 herramientas.
+REGLAS DE LIQUIDACIÓN DETERMINISTA (SIN EXCEPCIONES):
+1. PRIORIDAD DE DATOS: Usa el [ID DE PEDIDO ACTUAL: ...] y los [PRODUCTOS YA EXTRAÍDOS...] del contexto.
+2. FLUJO DE STOCK:
+   - DEBES llamar a 'check_inventory_batch' antes de confirmar cualquier pedido.
+   - SI EL STOCK ES INSUFICIENTE (ej: pide 2, hay 1):
+     * SOLO cobra la cantidad DISPONIBLE en el desglose y el total.
+     * Incluye el mensaje de advertencia ⚠️ exactamente como se indica abajo, y PREGUNTA al cliente. NO asumas su respuesta.
+3. FORMATO DE DESGLOSE OBLIGATORIO (usa exactamente este estilo):
+   •⁠  ⁠[Cantidad]x [Nombre del Producto] ($[Precio Total del Item])
+   (Nota: El punto • seguido de ⁠ y el espacio es vital para el formato WhatsApp).
 
-ESTRUCTURA OBLIGATORIA DE RESPUESTA:
-'¡Pedido Recibido Sumercé! 🛒
+ESTRUCTURA FINAL DE RESPUESTA A UN NUEVO PEDIDO:
+🛒¡Pedido recibido Sumercé! 
 
 Desglose de su pedido: 
-• [Cantidad]x [Nombre del Producto] ($[Precio Total del Item])
-... (repetir por cada item)
+•⁠  ⁠[Cantidad Disponible]x [Nombre del Producto] ($[Precio Total])
+...
 
-Subtotal: $[Suma de productos con stock]
+Subtotal: $[Suma de disponibles]
 Domicilio: $[Valor de get_config]
-TOTAL A PAGAR: $[Suma Total Real]
+Total a pagar: $[Suma Total Real]
 
-✅ Pedido registrado con éxito (ID: [ESCRIBE AQUÍ EL ID_PEDIDO DEL CONTEXTO]).
+✅Pedido número (ID: [ID_PEDIDO])
 
-🏦 MEDIOS DE PAGO DISPONIBLES:
-1. Transferencia Bancolombia: Ahorros 571 000051 61
-2. Pago por Llave (Bre-B): @frescoh
-3. Código QR: (A continuación se lo comparto sumercé)
+[MENSAJE_AY_SUMERCE_SI_FALTA_STOCK]
 
-Apenas realice el paguito, por favor me manda el comprobante por aquí mismo para agendar su entrega. ¡Muchas gracias! [SEND_QR_FRESCOH]'
+🏦Medios de pago:
+Transferencia a Bancolombia → Cuenta de ahorros 57100005161
+Pago por llave (Bre-B) → @frescoh
+Código QR → está en la imagen de abajo.
 
-REGLA DE ORO: El cliente espera resultados, no procesos. Si hay datos en el contexto, úsalos para disparar las herramientas de inmediato.
+Apenas me envíe el comprobante, le reservo su cupo en la ruta de despacho. ¡Gracias por preferir nuestros productos! siempre Frescoh! [SEND_QR_FRESCOH]
+
+REGLA PARA [MENSAJE_AY_SUMERCE_SI_FALTA_STOCK]:
+Si hubo productos con stock insuficiente o nulo, DEBES incluir inmediatamente debajo del número de pedido:
+"⚠️ ¡Ay, sumercé! Fíjese que no encuentro suficiente [Nombre] en nuestra cosecha de hoy (solo pude apartarle [Cantidad Disponible]). ¿Le gustaría proceder con el pago de lo que tenemos disponible y que lo anote de una vez en la lista de espera por el resto (Sí), o prefiere dejar así solamente lo que hay (No)?"
+
+MANEJO DE RESPUESTA A LA PREGUNTA (Sí/No) - ESTO ES CUANDO EL CLIENTE TE RESPONDE A LA PREGUNTA ANTERIOR:
+- Si el cliente responde "SÍ": Llama a 'register_waitlist' con los productos faltantes. Tu respuesta debe ser EXACTAMENTE:
+  "Listo sumercé, ya quedó anotado en la lista de espera. Quedo muy atento a su comprobante de pago de lo que tenemos disponible para despacharle."
+- Si el cliente responde "NO": Tu respuesta debe ser EXACTAMENTE:
+  "Bueno señor, esperamos el comprobante de pago ya que no quiere el producto más adelante."
 """
 
 finance_agent = Agent(
@@ -183,14 +239,14 @@ sales_agent = Agent(
     name="sales_agent",
     model=nvidia_model, 
     instruction=INSTRUCTIONS_SALES,
-    tools=[check_inventory_batch, get_catalog, get_payment_info, get_config]
+    tools=[check_inventory_batch, get_catalog, get_payment_info, get_config, register_waitlist]
 )
 
 inventory_agent = Agent(
     name="inventory_agent",
     model=nvidia_model,
     instruction=INSTRUCTIONS_BASE + " Encargado de detalles de productos y stock. Usa 'get_catalog' para ver disponibilidad.",
-    tools=[check_inventory_batch, get_catalog]
+    tools=[check_inventory_batch, get_catalog, register_waitlist]
 )
 
 emotion_agent = Agent(
@@ -225,6 +281,8 @@ async def run_agent(request: Request):
         session_id = data.get("session_id", "s1")
         message_text = data.get("message", "hola")
         client_id = data.get("client_id", user_id)
+        client_name = data.get("client_name", "Cliente")
+        client_phone = data.get("client_phone", "Sin teléfono")
         order_id = data.get("order_id", "ORD-NEW")
         items = data.get("items", [])
         
@@ -271,8 +329,15 @@ async def run_agent(request: Request):
         ):
             if event.is_final_response() and event.content:
                 final_reply = event.content.parts[0].text
+        
+        # Recuperar items finales del estado si existen
+        final_metadata = {"agent": target}
+        if "final_items_to_register" in session.state:
+            final_metadata["items"] = session.state["final_items_to_register"]
+            # Limpiar para la próxima interacción
+            del session.state["final_items_to_register"]
                 
-        return {"reply": final_reply, "metadata": {"agent": target}}
+        return {"reply": final_reply, "metadata": final_metadata}
     except Exception as e:
         logger.error(f"Error crítico en run_agent: {e}")
         return {"reply": "¡Ay sumercé! fíjese que se me embolató la libreta.", "metadata": {"agent": "error"}}

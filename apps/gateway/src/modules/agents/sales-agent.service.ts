@@ -66,7 +66,7 @@ export class SalesAgentService {
         productId: i.productId || i.product,
         name: i.productName || i.product || 'Producto',
         quantity: i.quantity || i.unitsNeeded || 1,
-        price: i.pricePerUnit || 0,
+        price: i.pricePerUnit || i.price || 0,
       })),
     });
 

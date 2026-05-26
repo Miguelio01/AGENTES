@@ -15,13 +15,15 @@ export class InternalToolsController {
   ) {}
 
   @Post('check-stock')
-  async checkStock(@Body() data: { product: string; quantity: number, clientId: string, action?: string }) {
-    this.logger.log(`🔧 Internal Tool: ${data.action || 'check_stock'} for ${data.product}`);
+  async checkStock(@Body() data: { product: string; quantity: number, clientId: string, action?: string, items?: any[] }) {
+    const action = (data.action as any) || 'check_stock';
+    this.logger.log(`🔧 Internal Tool: ${action} for ${data.product || data.items?.length + ' items'}`);
+    
     const response = await this.inventoryAgent.handleRequest({
       from: 'adk-agent' as any,
       to: 'inventory-agent' as any,
-      action: (data.action as any) || 'check_stock',
-      data: {
+      action,
+      data: data.items ? { items: data.items } : {
         productName: data.product,
         requestedQuantity: data.quantity,
       },

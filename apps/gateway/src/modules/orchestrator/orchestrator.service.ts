@@ -90,36 +90,41 @@ export class OrchestratorService {
 
     // 5. DELEGACIÓN AL CORE COGNITIVO (Python ADK)
     this.logger.log(`🧠 A2A CORE: Delegando razonamiento a Python ADK...`);
-    
+
     try {
       const response = await this.callAdkCore(message, client, session);
-      
+
       const reply = Message.create({
         content: response.reply,
         role: 'assistant',
         channel: message.channel,
       });
 
-      // Sincronizar estado de sesión basado en metadatos de ADK
+      // 1. Sincronizar estado de sesión basado en metadatos de ADK
       await this.syncSessionWithCore(session, response, client, message);
 
       await presenceCallback(false);
       session.addMessage(message);
       session.addMessage(reply);
       await this.sessionsService.update(session);
-      
+
       await replyCallback(reply);
 
-      // Post-procesamiento: Registro en prepago si es pedido de catálogo
-      if (message.metadata?.orderItems && !session.metadata?.registeredInPrepago) {
-          await this.registerCatalogueInPrepago(message, client, session);
+      // 2. REGISTRO UNIVERSAL EN PREPAGO (HANDS)
+      // Si el ADK extrajo items o vienen de WhatsApp, y no se han registrado, grabamos en Sheets
+      // PRIORIDAD: Preferimos los items del ADK porque pueden venir ajustados por stock
+      const finalItems = response.metadata?.items || message.metadata?.orderItems;
+      const hasItemsToRegister = finalItems && finalItems.length > 0 && !session.metadata?.registeredInPrepago;
+
+      if (hasItemsToRegister) {
+        await this.registerCatalogueInPrepago(finalItems, client, session);
       }
 
     } catch (error) {
       this.logger.error(`❌ Error en comunicación A2A: ${error.message}`);
       await presenceCallback(false);
       await replyCallback(Message.create({
-        content: '¡Ay sumercé! Me dio un vahído y no pude terminar de hablar. ¿Me repite?',
+        content: '¡Ay sumercé! fíjese que se me embolató el hilo y no pude terminar de hablar. ¿Me regala un momentico y me repite?',
         role: 'assistant',
         channel: message.channel,
       }));
@@ -131,7 +136,7 @@ export class OrchestratorService {
     const pushName = metadata.pushName || '';
     const cleanPhone = metadata.phone || senderId.split('@')[0].replace(/[^0-9]/g, '');
     const currentLid = metadata.lid || (senderId.includes('@lid') ? senderId.split(' ')[0].trim() : undefined);
-    
+
     let client = currentLid ? await this.clientsService.findByLid(currentLid) : null;
     if (!client && cleanPhone) client = await this.clientsService.findByPhone(cleanPhone);
     if (!client) client = await this.clientsService.findOne(cleanPhone);
@@ -162,14 +167,17 @@ export class OrchestratorService {
   }
 
   private shouldInterceptFlow(session: Session): boolean {
-    return session.flowState !== 'IDLE' && 
-           session.flowState !== 'AWAITING_ORDER';
+    return session.flowState !== 'IDLE' &&
+      session.flowState !== 'AWAITING_ORDER';
   }
 
   private isInitialContact(session: Session, message: Message): boolean {
     // Si el mensaje tiene media (comprobante), NUNCA es un contacto inicial para saludo genérico
     if (message.metadata?.media) return false;
-    
+
+    // Si la sesión ya tiene un flujo activo (ej: esperando pago), no interrumpir con saludo inicial
+    if (session.flowState !== 'IDLE') return false;
+
     const userMsgs = session.history.filter(m => m.role === 'user');
     return userMsgs.length === 0 && message.content.length < 10 && !message.metadata?.orderItems;
   }
@@ -187,19 +195,41 @@ export class OrchestratorService {
   }
 
   private async callAdkCore(message: Message, client: Client, session: Session) {
+    let catalogContext = '';
+
+    // Si es un pedido manual, inyectamos el catálogo para que la IA sepa qué significan los números
+    if (message.content.toLowerCase().startsWith('/pedido')) {
+      try {
+        const inventoryResponse = await this.inventoryAgent.handleRequest({
+          from: 'orchestrator' as any,
+          to: 'inventory-agent' as any,
+          action: 'get_numbered_catalog' as any,
+          data: {},
+          context: { clientId: client.id }
+        });
+        if (inventoryResponse.status === 'SUCCESS') {
+          catalogContext = inventoryResponse.data.catalog;
+        }
+      } catch (e) { }
+    }
+
     return (await axios.post(`${this.adkUrl}/run`, {
       user_id: client.id,
       session_id: `session-${client.id}`,
       message: message.content,
       client_id: client.id,
-      order_id: session.metadata?.currentOrderId,
+      client_name: client.name,
+      client_phone: client.phone,
+      client_lid: client.lid,
+      order_id: session.metadata?.currentOrderId || 'ORD-NEW',
       items: message.metadata?.orderItems || [],
+      catalog: catalogContext,
     }, { timeout: 90000 })).data;
   }
 
   private async syncSessionWithCore(session: Session, adkResponse: any, client: Client, message: Message) {
     const metadata = adkResponse.metadata || {};
-    
+
     // Reconocer los nuevos tags de QR o menciones de pago para activar el estado de espera de comprobante
     const paymentTags = ['[SEND_QR]', '[SEND_QR_FRESCOH]', '💎ADJUNTAR_QR_FRESCOH💎', 'cuenta es:'];
     const isPaymentPhase = paymentTags.some(tag => adkResponse.reply.includes(tag));
@@ -219,28 +249,26 @@ export class OrchestratorService {
     }
   }
 
-  private async registerCatalogueInPrepago(message: Message, client: Client, session: Session) {
-      const orderId = session.metadata?.currentOrderId || `ORD-${Date.now().toString().slice(-6)}`;
-      const orderItems = message.metadata?.orderItems || [];
-      
-      try {
-        await this.salesAgent.handleRequest({
-          from: 'orchestrator' as any,
-          to: 'fulfillment-agent' as any,
-          action: 'register_prepaid',
-          context: { clientId: client.id, orderId },
-          data: { items: orderItems },
-        });
-        
-        if (!session.metadata) session.metadata = {};
-        session.metadata.registeredInPrepago = true;
-        session.metadata.currentOrderId = orderId;
-        
-        await this.sessionsService.update(session);
-        this.logger.log(`✅ Registro automático en prepago completado para ${client.name}`);
-      } catch (e) {
-        this.logger.error(`❌ Fallo en registro automático: ${e.message}`);
-      }
+  private async registerCatalogueInPrepago(items: any[], client: Client, session: Session) {
+    const orderId = session.metadata?.currentOrderId || `ORD-${Date.now().toString().slice(-4)}`;
+    try {
+      await this.salesAgent.handleRequest({
+        from: 'orchestrator' as any,
+        to: 'fulfillment-agent' as any,
+        action: 'register_prepaid',
+        context: { clientId: client.id, orderId },
+        data: { items },
+      });
+
+      if (!session.metadata) session.metadata = {};
+      session.metadata.registeredInPrepago = true;
+      session.metadata.currentOrderId = orderId;
+
+      await this.sessionsService.update(session);
+      this.logger.log(`✅ Registro exitoso en prepago para ${client.name} (ID: ${orderId})`);
+    } catch (e) {
+      this.logger.error(`❌ Fallo en registro automático: ${e.message}`);
+    }
   }
 
   // --- MÉTODOS DE FORMULARIO (HANDS) MANTENIDOS PARA CONTROL DE CANAL ---
@@ -248,12 +276,12 @@ export class OrchestratorService {
     // Aquí mantenemos la lógica de AWAITING_NAME, AWAITING_PAYMENT_PROOF, etc.
     // que interactúa directamente con el estado del canal (WhatsApp/Telegram).
     // NOTA: Esta lógica se simplificará en una segunda pasada.
-    
+
     if (session.flowState === 'AWAITING_PAYMENT_PROOF') {
       const isComprobante = message.metadata?.media || message.content.toLowerCase().includes('soporte') || message.content.toLowerCase().includes('pagué');
       if (isComprobante) {
         this.logger.log(`💰 Procesando comprobante de pago de ${client.name}...`);
-        
+
         const orderId = session.metadata?.currentOrderId || `ORD-${Date.now().toString().slice(-6)}`;
         this.eventEmitter.emit('payment.proof.submitted', new PaymentProofSubmittedEvent(
           orderId, client.phone || client.id, message.metadata?.media,
@@ -273,6 +301,6 @@ export class OrchestratorService {
     }
 
     // Simplificación extrema: Si no es pago, delegamos al Core ADK para que él decida
-    return false; 
+    return false;
   }
 }
