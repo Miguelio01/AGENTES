@@ -13,6 +13,10 @@ export class ClientsService {
     return this.clientRepository.save(client);
   }
 
+  async save(client: Client) {
+    return this.clientRepository.save(client);
+  }
+
   async findOne(id: string): Promise<Client | null> {
     return this.clientRepository.findById(id);
   }
@@ -23,5 +27,9 @@ export class ClientsService {
 
   async findByLid(lid: string): Promise<Client | null> {
     return this.clientRepository.findByLid(lid);
+  }
+
+  async findAll(): Promise<Client[]> {
+    return this.clientRepository.findAll();
   }
 }

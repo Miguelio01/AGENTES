@@ -64,7 +64,7 @@ export class Client {
     this.props.name = name;
   }
 
-  updateProfile(data: Partial<Pick<ClientProps, 'fullName' | 'documentType' | 'documentNumber' | 'email' | 'address' | 'city' | 'registrationSource' | 'lid' | 'phone'>>): void {
+  updateProfile(data: Partial<Pick<ClientProps, 'fullName' | 'documentType' | 'documentNumber' | 'email' | 'address' | 'city' | 'registrationSource' | 'lid' | 'phone' | 'metadata'>>): void {
     Object.assign(this.props, data);
   }
 }

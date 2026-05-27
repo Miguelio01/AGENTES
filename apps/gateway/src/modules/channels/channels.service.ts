@@ -113,29 +113,9 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
       `📩 Message received from ${senderId} via ${message.channel}`,
     );
 
-    // Lógica para Bot de Pedidos Manuales
+    // Lógica para Bot de Pedidos Manuales - Delegar completamente al orquestador para permitir el Wizard
     if (message.channel === 'telegram-orders') {
-      const content = message.content.toLowerCase();
-      
-      if (content.startsWith('/start') || content.startsWith('/ayuda') || content.startsWith('/help')) {
-        const example = Message.create({
-          content: `👋 ¡Hola! Soy el bot de **Pedidos Manuales Frescoh!**\n\nUsa el comando \`/pedido\` seguido de la información para registrar una orden.\n\n**Ejemplo:**\n\`/pedido\`\nCliente: Maria Paz\nCelular: 3108889900\nDirección: Carrera 7 #12-34 apto 402\nPedido:\n- 2 fresas de 500g\n- 1 kit de frutos rojos\n\nYo me encargo de descontar el inventario y anotarlo en el Sheets. 🚀`,
-          role: 'assistant',
-          channel: 'telegram-orders'
-        });
-        await this.sendMessage(example, senderId, 'telegram-orders');
-        return;
-      }
-
-      if (!content.startsWith('/pedido')) {
-        const warning = Message.create({
-          content: `⚠️ Jefe, use el comando \`/pedido\` al inicio para que yo sepa que debo procesar esta orden. Escriba \`/ayuda\` para ver un ejemplo.`,
-          role: 'assistant',
-          channel: 'telegram-orders'
-        });
-        await this.sendMessage(warning, senderId, 'telegram-orders');
-        return;
-      }
+      // No interceptamos aquí, dejamos que el orquestador y el TelegramOrdersService gestionen el flujo
     }
 
     // LOGICA DE ADMIN TELEGRAM (CANAL PRINCIPAL)
@@ -164,6 +144,30 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
         } else {
           const errorMsg = Message.create({
             content: `Jefe, por favor dígame el ID del pedido, así: \`/aprobado ID-PEDIDO\``,
+            role: 'assistant',
+            channel: 'telegram',
+          });
+          await this.sendMessage(errorMsg, senderId, 'telegram');
+          return;
+        }
+      }
+
+      if (contentLow.startsWith('/enviado')) {
+        const parts = message.content.split(' ');
+        const orderId = parts[1];
+        if (orderId) {
+          this.logger.log(`🚛 Admin marked order as shipped: ${orderId}`);
+          this.eventEmitter.emit('order.shipped', { orderId, adminId: senderId });
+          const confirmation = Message.create({
+            content: `¡Entendido jefe! Marcando pedido ${orderId} como enviado. Notificando al cliente...`,
+            role: 'assistant',
+            channel: 'telegram',
+          });
+          await this.sendMessage(confirmation, senderId, 'telegram');
+          return;
+        } else {
+          const errorMsg = Message.create({
+            content: `Jefe, por favor dígame el ID del pedido: \`/enviado ID-PEDIDO\``,
             role: 'assistant',
             channel: 'telegram',
           });
@@ -212,7 +216,7 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
           this.logger.error(`❌ Error exportando catálogo: ${error.message}`);
           const cleanError = error.message.replace(/[_*`[\]]/g, '\\$&');
           await this.sendMessage(Message.create({
-            content: `❌ Error sumercé: ${cleanError}`,
+            content: `❌ Error en el envío: ${cleanError}`,
             role: 'assistant',
             channel: 'telegram'
           }), senderId, 'telegram');

@@ -17,6 +17,7 @@ import { InventoryAgentService } from '../agents/inventory-agent.service';
 import { EscalationAgentService } from '../agents/escalation-agent.service';
 import { SalesAgentService } from '../agents/sales-agent.service';
 import { OrdersService } from '../orders/orders.service';
+import { TelegramOrdersService } from './telegram-orders.service';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
@@ -32,6 +33,7 @@ export class OrchestratorService {
     private readonly escalationAgent: EscalationAgentService,
     private readonly salesAgent: SalesAgentService,
     private readonly ordersService: OrdersService,
+    private readonly telegramOrdersService: TelegramOrdersService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
   ) {
@@ -52,6 +54,15 @@ export class OrchestratorService {
     // 1. GESTIÓN DE IDENTIDAD (Cliente y Sesión)
     const client = await this.resolveClient(message, senderId);
     const session = await this.resolveSession(client, senderId);
+
+    // 1.1 INTERCEPCIÓN ESPECIAL: BOT DE PEDIDOS TELEGRAM (Wizard)
+    if (message.channel === 'telegram-orders') {
+      const handled = await this.telegramOrdersService.handleMessage(message, client, session, replyCallback);
+      if (handled) {
+        await presenceCallback(false);
+        return;
+      }
+    }
 
     // 2. GESTIÓN DE ID DE PEDIDO (Consecutivo ORD-XXXX)
     // Si hay items del catálogo, forzamos un NUEVO ID de pedido para evitar usar el de la sesión anterior
@@ -103,6 +114,27 @@ export class OrchestratorService {
     const waitlistHandled = await this.interceptWaitlistResponse(message, client, session, replyCallback);
     if (waitlistHandled) return;
 
+    // 4.3. DETECCIÓN DE LEAD DESDE PÁGINA DE ENLACES (Hito solicitado por Miguel)
+    const isLinkPageLead = message.content.toLowerCase().includes('página de enlaces') || 
+                           message.content.toLowerCase().includes('conocido su página');
+    
+    if (isLinkPageLead) {
+      this.logger.log(`🔗 Detectado lead desde página de enlaces: ${senderId}`);
+      
+      const reply = Message.create({
+        content: `¡Buen día! Qué gusto saludarle, soy Fesquitoh. Si busca algo, recuerde que todos los productos disponibles están en el catálogo que encuentra aquí arribita☝️.\n\n¡Es más fácil y rápido! Si tiene alguna pregunta, con gusto le ayudo.`,
+        role: 'assistant',
+        channel: message.channel,
+      });
+
+      await presenceCallback(false);
+      session.addMessage(message);
+      session.addMessage(reply);
+      await this.sessionsService.update(session);
+      await replyCallback(reply);
+      return;
+    }
+
     // 5. DELEGACIÓN AL CORE COGNITIVO (Python ADK)
     this.logger.log(`🧠 A2A CORE: Delegando razonamiento a Python ADK...`);
 
@@ -139,7 +171,7 @@ export class OrchestratorService {
       this.logger.error(`❌ Error en comunicación A2A: ${error.message}`);
       await presenceCallback(false);
       await replyCallback(Message.create({
-        content: '¡Ay sumercé! fíjese que se me embolató el hilo y no pude terminar de hablar. ¿Me regala un momentico y me repite?',
+        content: '¡Qué pena! Me distraje un momento y no pude terminar de hablar. ¿Me podría repetir lo último?',
         role: 'assistant',
         channel: message.channel,
       }));
@@ -172,7 +204,7 @@ export class OrchestratorService {
           context: { clientId: client.id }
         });
         const reply = Message.create({ 
-          content: 'Listo sumercé, ya quedó anotado en la lista de espera. Quedo muy atento a su comprobante de pago de lo que tenemos disponible para despacharle.', 
+          content: 'Listo, ya quedó anotado en la lista de espera. Quedo atento a su comprobante de pago de lo que tenemos disponible para despacharle.', 
           role: 'assistant', channel: message.channel 
         });
         await replyCallback(reply);
@@ -254,7 +286,7 @@ export class OrchestratorService {
         pricePerUnit: i.pricePerUnit
       }));
 
-      let replyContent = `🛒¡Pedido recibido Sumercé! \n\n` +
+      let replyContent = `🛒 ¡Pedido recibido! \n\n` +
         `Desglose de su pedido: \n${breakdown}\n\n` +
         `Subtotal: $${subtotal}\n` +
         `Domicilio: $${deliveryFee}\n` +
@@ -263,7 +295,7 @@ export class OrchestratorService {
       // 4. Agregar mensaje de advertencia si hay agotados
       if (outOfStockItems.length > 0) {
         const warning = outOfStockItems.map((i: any) => 
-          `⚠️ ¡Ay, sumercé! Fíjese que no encuentro suficiente ${i.productName} en nuestra cosecha de hoy (solo pude apartarle ${i.availableQuantity}). ¿Le gustaría proceder con el pago de lo que tenemos disponible y que lo anote de una vez en la lista de espera por el resto (Sí), o prefiere dejar así solamente lo que hay (No)?`
+          `⚠️ ¡Qué pena! No logré encontrar suficiente ${i.productName} en nuestro catálogo de hoy (solo pude apartarle ${i.availableQuantity}). ¿Le gustaría proceder con el pago de lo que tenemos disponible y que lo anote en la lista de espera por el resto?`
         ).join('\n\n');
         replyContent += warning + '\n\n';
       }
@@ -358,7 +390,7 @@ export class OrchestratorService {
 
   private async sendFixedGreeting(message: Message, session: Session, replyCallback: any, presenceCallback: any) {
     const greeting = Message.create({
-      content: `¡Hola sumercé! Qué bueno verlo por acá. Por favor haga su pedido por el *Catálogo* que encuentra aquí arribita. ⬆️👆\n\n¡Es más fácil y rápido! Pero si prefiere por aquí, con gusto lo atiendo. ¿Qué se le antoja llevar hoy?`,
+      content: `¡Buen día! Qué gusto saludarle, soy Fesquitoh. Si busca algo, recuerde que todos los productos disponibles están en el catálogo que encuentra aquí arribita☝️.\n\n¡Es más fácil y rápido! Si tiene alguna pregunta, con gusto le ayudo.`,
       role: 'assistant',
       channel: message.channel,
     });
@@ -464,7 +496,7 @@ export class OrchestratorService {
 
         await presenceCallback(false);
         await replyCallback(Message.create({
-          content: `¡Gracias sumercé! Ya recibí su soporte. Déme un momentico mientras verificamos el pago y yo le aviso apenas estemos listos para el despacho.`,
+          content: `¡Gracias! Ya recibí su soporte. Déme un momento mientras verificamos el pago y yo le aviso apenas estemos listos para el despacho.`,
           role: 'assistant', channel: message.channel
         }));
 

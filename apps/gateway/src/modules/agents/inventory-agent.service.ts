@@ -22,7 +22,7 @@ export class InventoryAgentService {
     @Inject(CLIENT_REPOSITORY_PORT)
     private readonly clientRepository: IClientRepository,
     private readonly knowledgeAgent: KnowledgeAgentService,
-  ) {}
+  ) { }
 
   async handleRequest(request: AgentRequest): Promise<AgentResponse> {
     this.logger.log(`🤖 Inventory Agent recibiendo acción: ${request.action}`);
@@ -113,7 +113,7 @@ export class InventoryAgentService {
   ): Promise<AgentResponse> {
     try {
       const products = await this.inventoryProvider.listProducts();
-      
+
       const productAliases: Record<string, string> = {
         'PROD-TIL-01': 'TIL',
         'PROD-HUE-JB': 'HJUM',
@@ -134,7 +134,7 @@ export class InventoryAgentService {
         .map((p, idx) => {
           // Usar el Alias descriptivo si existe, sino el ID original
           const code = productAliases[p.id] || p.id || `${p.name.substring(0, 1).toUpperCase()}${idx + 1}`;
-          
+
           let presentation = p.packagingType || 'unidad';
           if (p.weightGrams) {
             presentation += ` x ${p.weightGrams}g`;
@@ -183,7 +183,7 @@ export class InventoryAgentService {
       };
 
     let items = request.data?.items;
-    
+
     // Normalización: si items no es array pero data sí lo es, o si es un solo objeto
     if (!Array.isArray(items)) {
       if (Array.isArray(request.data)) {
@@ -248,7 +248,7 @@ export class InventoryAgentService {
     );
 
     const allProducts = await this.inventoryProvider.listProducts();
-    
+
     // --- NUEVO: Caso especial para Catálogo Completo ---
     if (productName === 'TODOS') {
       const available = allProducts.filter(p => p.stock > 0);
@@ -268,7 +268,7 @@ export class InventoryAgentService {
         } as any
       };
     }
-    
+
     // 0. PRIORIDAD MÁXIMA: Match por ID exacto (Catálogo / SKU)
     if (productId) {
       const idMatch = allProducts.find(p => p.id === productId || p.id === productId.toUpperCase());
@@ -305,7 +305,7 @@ export class InventoryAgentService {
       .trim();
 
     const cleanSearch = normalize(productName || '').toUpperCase();
-    
+
     // 0. INTENTO: Match por Alias Amigable (Prioridad absoluta para el cliente)
     const aliasMatchId = Object.keys(productAliases).find(id => productAliases[id] === cleanSearch);
     if (aliasMatchId) {
@@ -317,7 +317,7 @@ export class InventoryAgentService {
 
     // 1. INTENTO: Match Exacto (ID o Nombre)
     const exactMatch = allProducts.find(p => p.id === cleanSearch || normalize(p.name).toUpperCase() === cleanSearch);
-    
+
     if (exactMatch) {
       return this.processProductMatch(exactMatch, requestedQuantity, request.from as any);
     }
@@ -342,7 +342,7 @@ export class InventoryAgentService {
 
     // 3. INTENTO: Contiene (Substring Match)
     const substringMatches = allProducts.filter(p => normalize(p.name).includes(cleanSearch));
-    
+
     // Regla especial para huevos si es ambiguo
     const isEggQuery = cleanSearch.includes('huevo');
     if (isEggQuery) {
@@ -355,7 +355,7 @@ export class InventoryAgentService {
             to: request.from,
             status: 'REQUIRES_USER_INPUT',
             data: {
-              message: `Sumercé, tengo huevos Jumbo y Grandes. ¿De cuáles prefiere llevar?`,
+              message: `Tengo huevos AAA y AAA PLUS. ¿De cuáles prefiere llevar?`,
               options: eggOptions.map(p => p.name),
               ambiguousProduct: 'huevos'
             } as any,
@@ -371,7 +371,7 @@ export class InventoryAgentService {
         to: request.from,
         status: 'REQUIRES_USER_INPUT',
         data: {
-          message: `Sumercé, encontré varias opciones para "${productName}". ¿Cuál buscaba?`,
+          message: `Encontré varias opciones para "${productName}". ¿Cuál buscaba?`,
           options: substringMatches.map(c => c.name),
         } as any,
       };
@@ -394,7 +394,7 @@ export class InventoryAgentService {
         to: request.from,
         status: 'ERROR',
         data: {
-          message: `No encontré "${productName}" en la cosecha, sumercé.`,
+          message: `No encontré "${productName}" en el catálogo.`,
         } as any,
       };
     }
@@ -405,7 +405,7 @@ export class InventoryAgentService {
         to: request.from,
         status: 'REQUIRES_USER_INPUT',
         data: {
-          message: `Sumercé, tengo varias cosas parecidas a "${productName}". ¿Será alguna de estas?`,
+          message: `Tengo varios productos parecidos a "${productName}". ¿Será alguno de estos?`,
           options: fuzzyCandidates.map((c) => c.name),
         } as any,
       };
@@ -472,10 +472,10 @@ export class InventoryAgentService {
   ): Promise<AgentResponse> {
     const items = request.data?.items || [];
     this.logger.log(`📦 Consultando stock por lote para ${items.length} productos (Optimizado)`);
-    
+
     // Obtener todos los productos una sola vez
     const allProducts = await this.inventoryProvider.listProducts();
-    
+
     const results = items.map(item => {
       // Reutilizar lógica de búsqueda pero con la lista ya cargada
       const product = this.findProductInList(allProducts, item.productName);
@@ -506,7 +506,7 @@ export class InventoryAgentService {
       .trim();
 
     const cleanSearch = normalize(productName).toUpperCase();
-    
+
     // 1. Match exacto
     const exact = allProducts.find(p => normalize(p.name).toUpperCase() === cleanSearch || p.id === cleanSearch);
     if (exact) return exact;

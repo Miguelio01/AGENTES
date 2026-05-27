@@ -263,6 +263,30 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
     });
   }
 
+  async getDeliveryOrderDetails(orderId: string): Promise<any> {
+    const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
+    const sheetName = await this.getDeliverySheetName(spreadsheetId);
+
+    return this.withRetry(async () => {
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: `'${sheetName}'!A:G`,
+      });
+
+      const rows = response.data.values || [];
+      // Columna B (index 1) es ID_PEDIDO
+      const row = [...rows].reverse().find((r: any) => r[1]?.trim() === orderId.trim());
+
+      if (!row) return null;
+
+      // Columna D (index 3) es TELÉFONO
+      const phone = row[3] ? row[3].replace(/[^0-9]/g, '') : null;
+      const clientName = row[2] || 'Cliente';
+
+      return { id: orderId, clientId: phone, phone, clientName };
+    });
+  }
+
   async registerDeliveryOrder(order: Order, client: Client): Promise<void> {
     const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
     const sheetName = await this.getDeliverySheetName(spreadsheetId);
@@ -363,7 +387,28 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       const rows = response.data.values || [];
       const config: Record<string, string> = {};
       rows.forEach((row: any) => {
-        if (row[0]) config[row[0].trim()] = row[1]?.trim();
+        if (row[0]) {
+          const originalKey = row[0].trim();
+          const normalizedKey = originalKey.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const value = row[1]?.trim();
+          
+          config[originalKey] = value;
+          config[normalizedKey] = value;
+          
+          // Alias comunes para domicilio
+          if (normalizedKey === 'DOMICILIO' || normalizedKey === 'COSTO_DOMICILIO' || normalizedKey === 'VALOR_DOMICILIO') {
+            config['VALOR_DOMICILIO'] = value;
+            config['COSTO_DOMICILIO'] = value;
+          }
+
+          // Alias para días de entrega
+          if (normalizedKey === 'DIAS ENTREGA 1' || normalizedKey === 'DIA ENTREGA 1' || normalizedKey === 'DIAS_ENTREGA_1') {
+            config['DIAS_ENTREGA_1'] = value;
+          }
+          if (normalizedKey === 'DIAS ENTREGA 2' || normalizedKey === 'DIA ENTREGA 2' || normalizedKey === 'DIAS_ENTREGA_2') {
+            config['DIAS_ENTREGA_2'] = value;
+          }
+        }
       });
 
       // Leer Fecha de Entrega Dinámica desde Inventario!H1 si existe
@@ -373,7 +418,10 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
           range: "'Inventario '!H1",
         });
         const deliveryDateValue = deliveryDateResponse.data.values?.[0]?.[0];
-        if (deliveryDateValue) {
+        // Solo usar si es un valor "real" y no basura como "Futras"
+        if (deliveryDateValue && 
+            !deliveryDateValue.toLowerCase().includes('fruta') && 
+            !deliveryDateValue.toLowerCase().includes('futra')) {
           config['FECHA_ENTREGA_EXACTA'] = deliveryDateValue;
         }
       } catch (e) {}

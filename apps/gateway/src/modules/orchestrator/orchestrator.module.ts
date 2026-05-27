@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { OrchestratorService } from './orchestrator.service';
+import { TelegramOrdersService } from './telegram-orders.service';
 import { AiModule } from '../ai/ai.module';
 import { AiService } from '../ai/ai.service';
 import { SessionsModule } from '../sessions/sessions.module';
@@ -22,6 +23,7 @@ import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
   ],
   providers: [
     OrchestratorService,
+    TelegramOrdersService,
     {
       provide: 'IEmotionAnalyzer',
       useFactory: (aiService: AiService, configService: ConfigService) => {

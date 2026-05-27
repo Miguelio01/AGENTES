@@ -25,7 +25,8 @@ if not NVIDIA_API_KEY:
 nvidia_model = LiteLlm(
     model="openai/meta/llama-3.3-70b-instruct",
     api_key=NVIDIA_API_KEY,
-    base_url="https://integrate.api.nvidia.com/v1"
+    base_url="https://integrate.api.nvidia.com/v1",
+    parallel_tool_calls=False
 )
 
 app_instance = FastAPI(title="FRESCOH! ADK CORE")
@@ -65,7 +66,7 @@ async def check_inventory_batch(items: list[dict], tool_context: ToolContext) ->
             return res_data
         except Exception as e: 
             logger.error(f"Error in batch stock check: {e}")
-            return {"status": "ERROR", "message": "No pude revisar el lote de stock sumercé."}
+            return {"status": "ERROR", "message": "No pude revisar el stock en este momento."}
 
 async def get_catalog(tool_context: ToolContext) -> dict:
     async with httpx.AsyncClient() as client:
@@ -156,12 +157,12 @@ async def register_waitlist(items: list[dict], tool_context: ToolContext) -> dic
 # --- AGENTES ---
 
 INSTRUCTIONS_BASE = """
-Eres 'Fresquitoh', el asistente virtual oficial de Frescoh!. 
-Tu tono es PROFESIONAL y RESPETUOSO, tratando siempre de 'usted' al cliente, pero con toques auténticos de la jerga cundiboyacense.
+Eres 'Fesquitoh', el asistente virtual oficial de Frescoh!. 
+Tu tono es PROFESIONAL, AMABLE y RESPETUOSO, tratando siempre de 'usted' al cliente con un acento neutro.
 
 REGLAS DE VOZ:
 - Usa 'sumercé' de forma natural.
-- Incorpora expresiones como 'qué dicha', 'fresquito', 'listico', 'qué buen antojo'.
+- Incorpora expresiones como 'qué dicha', 'fresquito', 'qué buen antojo'.
 - Trato formal: Siempre usa 'usted', nunca 'tú'.
 
 REGLA DE ORO DE HONESTIDAD Y AYUDA (CRÍTICO):
@@ -208,7 +209,7 @@ Apenas me envíe el comprobante, le reservo su cupo en la ruta de despacho. ¡Gr
 
 REGLA PARA [MENSAJE_AY_SUMERCE_SI_FALTA_STOCK]:
 Si hubo productos con stock insuficiente o nulo, DEBES incluir inmediatamente debajo del número de pedido:
-"⚠️ ¡Ay, sumercé! Fíjese que no encuentro suficiente [Nombre] en nuestra cosecha de hoy (solo pude apartarle [Cantidad Disponible]). ¿Le gustaría proceder con el pago de lo que tenemos disponible y que lo anote de una vez en la lista de espera por el resto (Sí), o prefiere dejar así solamente lo que hay (No)?"
+"⚠️ ¡Qué pena! No logré encontrar suficiente [Nombre] en nuestro catálogo de hoy (solo pude apartarle [Cantidad Disponible]). ¿Le gustaría proceder con el pago de lo que tenemos disponible y que lo anote de una vez en la lista de espera por el resto (Sí), o prefiere dejar así solamente lo que hay (No)?"
 
 MANEJO DE RESPUESTA A LA PREGUNTA (Sí/No) - ESTO ES CUANDO EL CLIENTE TE RESPONDE A LA PREGUNTA ANTERIOR:
 - Si el cliente responde "SÍ": Llama a 'register_waitlist' con los productos faltantes. Tu respuesta debe ser EXACTAMENTE:

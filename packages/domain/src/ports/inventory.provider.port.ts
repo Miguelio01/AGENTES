@@ -101,4 +101,9 @@ export interface IInventoryProvider {
    * Recupera los detalles de un pedido registrado en la lista de prepago
    */
   getPrepaidOrderDetails(orderId: string): Promise<any>;
+
+  /**
+   * Recupera los detalles de un pedido registrado en la lista de entrega
+   */
+  getDeliveryOrderDetails(orderId: string): Promise<any>;
 }
