@@ -32,8 +32,6 @@ export class InventoryAgentService {
         return this.handleCheckStock(request);
       case 'check_stock_batch':
         return this.handleCheckStockBatch(request);
-      case 'get_available_list':
-        return this.handleGetAvailableList(request);
       case 'reserve_stock':
         return this.handleReserveStock(request);
       case 'register_waitlist':
@@ -99,6 +97,7 @@ export class InventoryAgentService {
     });
 
     await this.inventoryProvider.registerDeliveryOrder(order, client);
+    await this.inventoryProvider.registerCostControlOrder(order, client);
 
     return {
       from: 'inventory-agent',
@@ -106,66 +105,6 @@ export class InventoryAgentService {
       status: 'SUCCESS',
       data: { message: 'Pedido registrado en la lista de entregas semanal' },
     };
-  }
-
-  private async handleGetAvailableList(
-    request: AgentRequest,
-  ): Promise<AgentResponse> {
-    try {
-      const products = await this.inventoryProvider.listProducts();
-
-      const productAliases: Record<string, string> = {
-        'PROD-TIL-01': 'TIL',
-        'PROD-HUE-JB': 'HJUM',
-        'PROD-HUE-GR': 'HGR',
-        'FRU-FRE-500': 'FRE',
-        'FRU-MOR-500': 'MOR',
-        'FRU-FRA-125': 'FRA',
-        'FRU-UCH-500': 'UCH',
-        'VER-TOS-500': 'TCH',
-        'FRU-ARA-500': 'ARAP',
-        'FRU-ARA-501': 'ARAM',
-        'FRU-ARA-502': 'ARAG',
-        'KIT-FRU-01': 'KIT',
-        'ABA-ARE-05': 'ARE'
-      };
-
-      const available = products
-        .map((p, idx) => {
-          // Usar el Alias descriptivo si existe, sino el ID original
-          const code = productAliases[p.id] || p.id || `${p.name.substring(0, 1).toUpperCase()}${idx + 1}`;
-
-          let presentation = p.packagingType || 'unidad';
-          if (p.weightGrams) {
-            presentation += ` x ${p.weightGrams}g`;
-          } else if (p.unitsPerPackage) {
-            presentation += ` x ${p.unitsPerPackage} uds`;
-          }
-
-          return {
-            code,
-            name: p.name,
-            price: p.price,
-            presentation,
-            description: p.description,
-            stock: p.stock,
-            isOutOfStock: p.stock <= 0
-          };
-        });
-      return {
-        from: 'inventory-agent',
-        to: request.from,
-        status: 'SUCCESS',
-        data: { availableProducts: available },
-      };
-    } catch (e) {
-      return {
-        from: 'inventory-agent',
-        to: request.from,
-        status: 'ERROR',
-        data: { message: e.message },
-      };
-    }
   }
 
   private async handleRegisterWaitlist(

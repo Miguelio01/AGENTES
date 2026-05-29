@@ -97,12 +97,14 @@ export class OrderSaga {
     // MEJORA: Si no tenemos el clientId, lo buscamos en el Excel proactivamente
     let clientId = event.clientId;
     let items = [];
+    let excelTotal = 0;
 
     try {
       const details = await this.inventoryProvider.getPrepaidOrderDetails(event.orderId);
       if (details) {
         clientId = clientId || details.clientId;
         items = details.items || [];
+        excelTotal = details.total || 0;
       }
     } catch (e: any) {
       this.logger.warn(`⚠️ No se pudieron recuperar detalles del Excel para ${event.orderId}: ${e.message}`);
@@ -141,7 +143,7 @@ export class OrderSaga {
         })
       );
     }    // VERIFICACIÓN DE PERFIL COMPLETO (Hito solicitado por Miguel)
-    const isProfileComplete = !!(client.fullName && client.documentNumber && client.address && client.email);
+    const isProfileComplete = !!(client.fullName && client.documentType && client.documentNumber && client.address && client.email);
 
     if (!isProfileComplete) {
       this.logger.log(`⚠️ Cliente ${client.name} tiene perfil incompleto. Iniciando recolección de datos masiva.`);
@@ -181,15 +183,15 @@ export class OrderSaga {
       const deliveryDate = this.calculateDeliveryDate(finalItems, config);
 
       const deliveryFee = session?.metadata?.deliveryFee || 0;
-      const total = session?.metadata?.total || 0;
+      const total = session?.metadata?.total || excelTotal || 0;
 
       const order = Order.create({
         id: event.orderId,
         clientId: client.id,
         agentId: 'sales-agent',
         items: finalItems.map((i: any) => ({
-          productId: i.productId || i.product,
-          name: i.productName || i.product,
+          productId: i.productId || i.product || i.id || 'MANUAL',
+          name: i.productName || i.product || i.name || 'Producto',
           quantity: i.quantity || i.unitsNeeded || 1,
           price: i.pricePerUnit || i.price || 0,
         })),
@@ -198,6 +200,7 @@ export class OrderSaga {
       });
 
       await this.inventoryProvider.registerDeliveryOrder(order, client);
+      await this.inventoryProvider.registerCostControlOrder(order, client);
       await this.inventoryProvider.removeFromPrepaidList(event.orderId);
 
       // --- ESTRATEGIA DE RETENCIÓN ---
@@ -231,14 +234,15 @@ export class OrderSaga {
   }
 
   private calculateDeliveryDate(items: any[], config: Record<string, string>): string {
+    const isGarbage = (val: string) => !val || val.toLowerCase().includes('frut') || val.toLowerCase().includes('futra');
     let date = 'Jueves';
 
-    if (config['FECHA_ENTREGA_EXACTA'] && config['FECHA_ENTREGA_EXACTA'].length > 3) {
+    if (config['FECHA_ENTREGA_EXACTA'] && config['FECHA_ENTREGA_EXACTA'].length > 3 && !isGarbage(config['FECHA_ENTREGA_EXACTA'])) {
       date = config['FECHA_ENTREGA_EXACTA'];
       this.logger.log(`📅 Usando fecha de entrega exacta desde config: ${date}`);
     } else {
-      const d1 = config['DIAS_ENTREGA_1'] || 'Jueves';
-      const d2 = config['DIAS_ENTREGA_2'] || 'Lunes';
+      const d1 = !isGarbage(config['DIAS_ENTREGA_1']) ? config['DIAS_ENTREGA_1'] : 'Jueves';
+      const d2 = !isGarbage(config['DIAS_ENTREGA_2']) ? config['DIAS_ENTREGA_2'] : 'Lunes';
       const hasOutOfStock = items.some(i => i.isOutOfStock || (i.stock !== undefined && i.stock <= 0) || i.available === false);
 
       const now = new Date();
@@ -252,12 +256,6 @@ export class OrderSaga {
         date = hasOutOfStock ? d2 : d1; // Domingo
       }
       this.logger.log(`📅 Fecha de entrega calculada: ${date} (D1: ${d1}, D2: ${d2}, OutOfStock: ${hasOutOfStock})`);
-    }
-
-    // Validación final de seguridad contra valores basura como "frutas"
-    if (date.toLowerCase().includes('fruta') || date.toLowerCase().includes('futra')) {
-      this.logger.warn(`⚠️ Detectado valor basura en fecha de entrega: "${date}". Revirtiendo a Jueves.`);
-      return 'Jueves';
     }
 
     return date;

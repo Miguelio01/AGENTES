@@ -152,7 +152,7 @@ export class OrchestratorService {
   }
 
   private async resolveSession(client: Client, senderId: string): Promise<Session> {
-    const sessionClientId = client.phone || senderId.split(' ')[0].trim();
+    const sessionClientId = client.id || senderId.split(' ')[0].trim();
     let session = await this.sessionsService.findActiveByClientId(sessionClientId);
     if (!session) {
       session = Session.create({ clientId: sessionClientId, agentId: 'fresco-consultor' });
@@ -229,7 +229,10 @@ export class OrchestratorService {
           to: 'fulfillment-agent' as any,
           action: 'register_prepaid',
           context: { clientId: client.id, orderId },
-          data: { items: orderItems },
+          data: { 
+            items: orderItems,
+            deliveryFee: session.metadata?.deliveryFee 
+          },
         });
         
         if (!session.metadata) session.metadata = {};

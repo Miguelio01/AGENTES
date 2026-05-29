@@ -39,6 +39,10 @@ export class TelegramOrdersService {
     const content = message.content.trim();
     const contentLow = content.toLowerCase();
 
+    // Actualizar actividad de la sesión para evitar timeouts durante el wizard
+    session.addMessage(message);
+    await this.sessionsService.update(session);
+
     // 1. Comandos de Ayuda o Inicio
     if (contentLow.startsWith('/start') || contentLow.startsWith('/ayuda') || contentLow.startsWith('/help')) {
       await replyCallback(Message.create({
@@ -275,7 +279,12 @@ export class TelegramOrdersService {
   private async handleAwaitingDeliveryChoice(choice: string, session: Session, replyCallback: any) {
     const includesDelivery = choice.includes('si') || choice.includes('sí');
     const config = await this.inventoryProvider.getConfig();
-    const deliveryFee = includesDelivery ? (parseInt(config['COSTO_DOMICILIO'] || config['VALOR_DOMICILIO']) || 5000) : 0;
+    
+    let deliveryFee = 0;
+    if (includesDelivery) {
+      const rawFee = config['COSTO_DOMICILIO'] || config['VALOR_DOMICILIO'] || '9000';
+      deliveryFee = parseInt(rawFee.replace(/[$. ]/g, '').split(',')[0]) || 9000;
+    }
     
     if (!session.metadata) session.metadata = {};
     if (!session.metadata.telegramOrder) session.metadata.telegramOrder = {};
@@ -338,26 +347,92 @@ export class TelegramOrdersService {
     session.metadata!.total = total; 
     session.metadata!.deliveryFee = deliveryFee;
 
-    // 3. Registrar en Prepago (Sheets)
+    // --- MEJORA: Validación de Stock Real y Lista de Espera ---
+    this.logger.log(`🔍 Validando stock para pedido manual de ${client.name}`);
+    const inventoryResponse = await this.inventoryAgent.handleRequest({
+      from: 'telegram-orders' as any,
+      to: 'inventory-agent' as any,
+      action: 'check_stock_batch' as any,
+      data: { 
+        items: resolvedItems.map(i => ({ 
+          productName: i.productName, 
+          quantity: i.quantity 
+        })) 
+      },
+      context: { clientId: client.id }
+    });
+
+    let finalResolvedItems = resolvedItems;
+    let availableSubtotal = 0;
+    let outOfStockMessages: string[] = [];
+
+    if (inventoryResponse.status === 'SUCCESS') {
+      const results = inventoryResponse.data.results;
+      const availableItems = results.filter((r: any) => r.availableQuantity > 0);
+      const outOfStockItems = results.filter((r: any) => r.missingQuantity > 0);
+
+      // 1. Cobrar solo lo disponible
+      finalResolvedItems = availableItems.map((i: any) => {
+        availableSubtotal += i.pricePerUnit * i.availableQuantity;
+        return {
+          productId: i.productId || i.productName,
+          productName: i.productName,
+          quantity: i.availableQuantity,
+          pricePerUnit: i.pricePerUnit
+        };
+      });
+
+      // 2. Gestionar Lista de Espera para lo que falta
+      if (outOfStockItems.length > 0) {
+        this.logger.log(`📋 Registrando ${outOfStockItems.length} items en lista de espera`);
+        session.metadata.missingItems = outOfStockItems.map((i: any) => ({
+          productId: i.productId || i.productName,
+          productName: i.productName,
+          quantity: i.missingQuantity
+        }));
+
+        for (const missing of outOfStockItems) {
+           await this.inventoryProvider.addToWaitlist(client.id, missing.productId || missing.productName);
+           outOfStockMessages.push(`• ${missing.missingQuantity}x ${missing.productName} (No disponible, anotado en lista de espera)`);
+        }
+      }
+    } else {
+      // Si falla la verificación, usamos lo procesado inicialmente (fallback)
+      availableSubtotal = subtotal;
+    }
+
+    const finalTotal = availableSubtotal + deliveryFee;
+    session.metadata!.currentOrderItems = finalResolvedItems;
+    session.metadata!.total = finalTotal;
+
+    // 3. Registrar en Prepago (Sheets) con los items REALMENTE disponibles
     await this.salesAgent.handleRequest({
       from: 'telegram-orders' as any,
       to: 'fulfillment-agent' as any,
       action: 'register_prepaid',
       context: { clientId: client.id, orderId },
-      data: { items: resolvedItems, deliveryFee },
+      data: { 
+        items: finalResolvedItems, 
+        deliveryFee 
+      },
     });
     
-    const resumen = `📝 *RESUMEN DEL PEDIDO*\n\n` +
+    let resumen = `📝 *RESUMEN DEL PEDIDO*\n\n` +
       `*ID:* ${orderId}\n` +
       `*Cliente:* ${session.metadata.telegramOrder.clientName}\n` +
       `*Doc:* ${session.metadata.telegramOrder.docType} ${session.metadata.telegramOrder.docNumber}\n` +
       `*Dirección:* ${session.metadata.telegramOrder.address}\n` +
       `*Email:* ${session.metadata.telegramOrder.email}\n` +
       `*Teléfono:* ${session.metadata.telegramOrder.clientPhone}\n\n` +
-      `*Productos:* \n${resolvedItems.map(i => `• ${i.quantity}x ${i.productName} ($${(i.pricePerUnit * i.quantity).toLocaleString('es-CO')})`).join('\n')}\n\n` +
-      `*Subtotal:* $${subtotal.toLocaleString('es-CO')}\n` +
+      `*Productos Disponibles:* \n${finalResolvedItems.map(i => `• ${i.quantity}x ${i.productName} ($${(i.pricePerUnit * i.quantity).toLocaleString('es-CO')})`).join('\n')}\n`;
+
+    if (outOfStockMessages.length > 0) {
+      resumen += `\n*Faltantes (Lista de Espera):* \n${outOfStockMessages.join('\n')}\n`;
+    }
+
+    resumen += `\n*Subtotal:* $${availableSubtotal.toLocaleString('es-CO')}\n` +
       `*Domicilio:* $${deliveryFee.toLocaleString('es-CO')}\n` +
-      `*TOTAL A PAGAR:* $${total.toLocaleString('es-CO')}\n\n` +
+      `*TOTAL A PAGAR:* $${finalTotal.toLocaleString('es-CO')}\n\n` +
       `El pedido ha sido registrado en la lista de espera de pago. Por favor, envíe el *comprobante* para notificar al administrador principal:`;
 
     session.setFlowState('AWAITING_PAYMENT_PROOF');

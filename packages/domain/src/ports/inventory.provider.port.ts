@@ -78,6 +78,11 @@ export interface IInventoryProvider {
   registerDeliveryOrder(order: Order, client: any): Promise<void>;
 
   /**
+   * Registra un pedido confirmado en la pestaña de control de costos
+   */
+  registerCostControlOrder(order: Order, client: any): Promise<void>;
+
+  /**
    * Registra un pedido en la lista de espera (sin stock)
    */
   registerWaitlistOrder(order: Order, client: any): Promise<void>;

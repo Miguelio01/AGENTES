@@ -73,13 +73,16 @@ export class InternalToolsController {
   }
 
   @Post('register-order')
-  async registerOrder(@Body() data: { items: any[]; clientId: string; orderId?: string }) {
+  async registerOrder(@Body() data: { items: any[]; clientId: string; orderId?: string; deliveryFee?: number }) {
     this.logger.log(`🔧 Internal Tool: register-order for ${data.clientId}`);
     const response = await this.salesAgent.handleRequest({
       from: 'adk-agent' as any,
       to: 'sales-agent' as any,
       action: 'register_prepaid',
-      data: { items: data.items },
+      data: { 
+        items: data.items,
+        deliveryFee: data.deliveryFee
+      },
       context: {
         clientId: data.clientId,
         orderId: data.orderId || `ADK-${Date.now().toString().slice(-6)}`

@@ -54,7 +54,13 @@ export class SalesAgentService {
 
     const config = await this.inventoryProvider.getConfig();
     const rawFee = config['COSTO_DOMICILIO'] || '0';
-    const deliveryFee = parseInt(rawFee.replace(/[$. ]/g, '').split(',')[0]) || 0;
+    const configDeliveryFee = parseInt(rawFee.replace(/[$. ]/g, '').split(',')[0]) || 0;
+
+    // Priorizar el deliveryFee que viene en el request (ej. desde TelegramOrdersService)
+    // Si es undefined o null, usar el de la configuración.
+    const deliveryFee = (request.data.deliveryFee !== undefined && request.data.deliveryFee !== null)
+      ? request.data.deliveryFee
+      : configDeliveryFee;
 
     const items = request.data.items || [];
     const order = Order.create({
@@ -63,8 +69,8 @@ export class SalesAgentService {
       agentId: 'sales-agent',
       deliveryFee,
       items: items.map((i: any) => ({
-        productId: i.productId || i.product,
-        name: i.productName || i.product || 'Producto',
+        productId: i.productId || i.product || i.id || 'MANUAL',
+        name: i.productName || i.product || i.name || 'Producto',
         quantity: i.quantity || i.unitsNeeded || 1,
         price: i.pricePerUnit || i.price || 0,
       })),

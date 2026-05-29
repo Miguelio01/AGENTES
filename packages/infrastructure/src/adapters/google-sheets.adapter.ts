@@ -115,7 +115,7 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
     return this.withRetry(async () => {
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
-        range: "'Inventario '!A2:C500",
+        range: "'Inventario '!A2:D500",
       });
 
       const rows = response.data.values;
@@ -134,15 +134,23 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       }
 
       const currentStock = parseInt(rows[rowIndex][2]) || 0;
+      const currentSales = parseInt(rows[rowIndex][3]) || 0;
+
       const newStock = Math.max(0, currentStock + quantityChange);
+      // Si quantityChange es negativo (venta), sumamos el valor absoluto a ventas
+      const newSales = currentSales + (quantityChange < 0 ? Math.abs(quantityChange) : 0);
 
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `'Inventario '!C${rowIndex + 2}`,
+        range: `'Inventario '!C${rowIndex + 2}:D${rowIndex + 2}`,
         valueInputOption: 'USER_ENTERED',
-        requestBody: { values: [[newStock]] }
+        requestBody: { 
+          values: [[newStock, newSales]] 
+        }
       });
-      console.log(`✅ Stock actualizado para "${rows[rowIndex][1]}": ${currentStock} -> ${newStock} (Ajuste: ${quantityChange})`);
+      console.log(`✅ Inventario actualizado para "${rows[rowIndex][1]}":`);
+      console.log(`   - Stock: ${currentStock} -> ${newStock}`);
+      console.log(`   - Ventas: ${currentSales} -> ${newSales}`);
     });
   }
 
@@ -230,6 +238,10 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       // Columna 3 (index 2) es WHATSAPP (clientId)
       const clientId = row[2] ? row[2].replace(/[^0-9]/g, '') : null;
 
+      // Columna 5 (index 4) es TOTAL
+      const totalStr = row[4] || '0';
+      const total = parseInt(totalStr.replace(/[$. ]/g, '').split(',')[0]) || 0;
+
       const productLines = (row[3] || '').split('\n');
       const items = productLines.map((line: string) => {
         // Limpiar caracteres invisibles de WhatsApp (ej: \u2060 Word Joiner)
@@ -259,7 +271,7 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
         return { ...item, productId: found ? found.id : item.name, name: found ? found.name : item.name };
       });
 
-      return { id: orderId, clientId, items: enrichedItems };
+      return { id: orderId, clientId, items: enrichedItems, total };
     });
   }
 
@@ -302,6 +314,82 @@ export class GoogleSheetsInventoryAdapter implements IInventoryProvider {
       console.error(`❌ Error registrando entrega en "${sheetName}": ${e.message}`);
       throw e;
     }
+  }
+
+  async registerCostControlOrder(order: Order, client: Client): Promise<void> {
+    const spreadsheetId = this.ordersSpreadsheetId || this.spreadsheetId;
+    const sheetName = 'Control_Costos';
+    
+    // Asegurar que la hoja existe con sus encabezados
+    await this.ensureSheetExists(spreadsheetId, sheetName, [
+      'ID_ORDEN', 
+      'CLIENTE', 
+      'TELEFONO', 
+      'DETALLE_ORDEN', 
+      'VALOR_TOTAL',
+      'FECHA_CONFIRMACION'
+    ]);
+
+    const date = new Date().toLocaleString('es-CO', { 
+      timeZone: 'America/Bogota',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    const productDetail = order.items
+      .map(i => `${i.quantity}x ${i.name}`)
+      .join(', ');
+
+    const row = [
+      order.id,
+      client.fullName || client.name || 'Cliente',
+      client.phone,
+      productDetail,
+      order.total,
+      date
+    ];
+
+    try {
+      await this.appendRow(spreadsheetId, `'${sheetName}'!A2`, [row]);
+      console.log(`✅ Registro de costo exitoso en "${sheetName}"`);
+    } catch (e: any) {
+      console.error(`❌ Error registrando costo en "${sheetName}": ${e.message}`);
+      throw e;
+    }
+  }
+
+  private async ensureSheetExists(spreadsheetId: string, title: string, headers: string[]): Promise<void> {
+    return this.withRetry(async () => {
+      try {
+        const meta = await this.sheets.spreadsheets.get({ spreadsheetId });
+        const sheets = meta.data.sheets || [];
+        const exists = sheets.some((s: any) => s.properties.title === title);
+
+        if (!exists) {
+          console.log(`🚀 Creando nueva pestaña: ${title}`);
+          await this.sheets.spreadsheets.batchUpdate({
+            spreadsheetId,
+            requestBody: {
+              requests: [{
+                addSheet: {
+                  properties: { title }
+                }
+              }]
+            }
+          });
+
+          // Agregar encabezados inmediatamente
+          await this.sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range: `'${title}'!A1`,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: { values: [headers] }
+          });
+        }
+      } catch (e: any) {
+        console.warn(`⚠️ Error al asegurar existencia de hoja "${title}": ${e.message}`);
+      }
+    });
   }
 
   private async getDeliverySheetName(spreadsheetId: string): Promise<string> {

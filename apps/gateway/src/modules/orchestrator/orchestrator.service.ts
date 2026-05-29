@@ -6,6 +6,7 @@ import {
   Client,
   EmotionalState,
   PaymentProofSubmittedEvent,
+  AdminPaymentApprovedEvent,
   INVENTORY_PROVIDER_PORT,
   Order,
 } from '@agentes/domain';
@@ -34,6 +35,7 @@ export class OrchestratorService {
     private readonly salesAgent: SalesAgentService,
     private readonly ordersService: OrdersService,
     private readonly telegramOrdersService: TelegramOrdersService,
+    private readonly aiService: AiService,
     private readonly eventEmitter: EventEmitter2,
     private readonly configService: ConfigService,
   ) {
@@ -359,11 +361,11 @@ export class OrchestratorService {
   }
 
   private async resolveSession(client: Client, senderId: string): Promise<Session> {
-    const sessionClientId = client.phone || senderId.split(' ')[0].trim();
+    const sessionClientId = client.id || senderId.split(' ')[0].trim();
     let session = await this.sessionsService.findActiveByClientId(sessionClientId);
     if (!session) {
       session = Session.create({ clientId: sessionClientId, agentId: 'fresco-consultor' });
-      await this.sessionsService.create(session);
+      await this.sessionsService.update(session);
     }
     return session;
   }
@@ -463,7 +465,10 @@ export class OrchestratorService {
         to: 'fulfillment-agent' as any,
         action: 'register_prepaid',
         context: { clientId: client.id, orderId },
-        data: { items },
+        data: { 
+          items,
+          deliveryFee: session.metadata?.deliveryFee 
+        },
       });
 
       if (!session.metadata) session.metadata = {};
@@ -503,6 +508,81 @@ export class OrchestratorService {
         session.setFlowState('AWAITING_ADMIN_APPROVAL');
         await this.sessionsService.update(session);
         return true;
+      }
+    }
+
+    if (session.flowState === 'AWAITING_BULK_DATA') {
+      this.logger.log(`📝 Procesando datos masivos para ${client.name}...`);
+      
+      const extractionPrompt = `Extrae la información del cliente del siguiente mensaje en formato JSON puro (sin markdown). 
+      Campos: 
+      - fullName: Nombre completo o razón social.
+      - documentType: Tipo de documento (ej: CC, NIT, CE, PP). Solo las siglas en mayúsculas.
+      - documentNumber: Solo el número del documento.
+      - address: Dirección de entrega.
+      - email: Correo electrónico.
+      
+      Si algún campo no está, pon null.
+      
+      Mensaje: "${message.content}"`;
+
+      try {
+        const jsonStr = await this.aiService.generateText(extractionPrompt, 'data_extraction');
+        const extracted = JSON.parse(jsonStr.replace(/```json|```/g, '').trim());
+
+        if (extracted.fullName || extracted.documentNumber || extracted.address || extracted.email) {
+          this.logger.log(`✅ Datos extraídos: ${JSON.stringify(extracted)}`);
+          
+          // 1. Actualizar el perfil del cliente
+          client.updateProfile({
+            fullName: extracted.fullName || client.fullName,
+            documentType: (extracted.documentType || client.documentType) as any,
+            documentNumber: extracted.documentNumber || client.documentNumber,
+            address: extracted.address || client.address,
+            email: extracted.email || client.email
+          });
+          await this.clientsService.save(client);
+
+          // 2. Verificar si ya tenemos todo lo necesario
+          const isCompleteNow = !!(client.fullName && client.documentType && client.documentNumber && client.address && client.email);
+          
+          if (isCompleteNow) {
+            const pendingOrder = session.metadata?.pendingDeliveryRegistration;
+            if (pendingOrder?.orderId) {
+              this.logger.log(`🚀 Perfil completado. Disparando aprobación final para pedido ${pendingOrder.orderId}`);
+              
+              // Disparar de nuevo el evento de aprobación para que la Saga lo tome con los datos nuevos
+              this.eventEmitter.emit('order.approved', new AdminPaymentApprovedEvent(
+                pendingOrder.orderId,
+                'SYSTEM-DATA-COLLECTOR',
+                client.id
+              ));
+
+              if (session.metadata) {
+                delete session.metadata.pendingDeliveryRegistration;
+              }
+              session.setFlowState('IDLE');
+              await this.sessionsService.update(session);
+
+              await presenceCallback(false);
+              await replyCallback(Message.create({
+                content: `¡Perfecto sumercé! Ya con sus datos completos he procedido a agendar su entrega. Muchas gracias por su colaboración.`,
+                role: 'assistant', channel: message.channel
+              }));
+              return true;
+            }
+          } else {
+             this.logger.warn(`⚠️ Datos parciales recibidos. Aún faltan campos para completar el perfil de ${client.name}`);
+             await replyCallback(Message.create({
+                content: `Muchas gracias por los datos. Sin embargo, me falta todavía información (recuerde: Nombre, Cédula, Dirección y Correo). ¿Me podría completar lo que falta, sumercé?`,
+                role: 'assistant', channel: message.channel
+             }));
+             return true;
+          }
+        }
+      } catch (e) {
+        this.logger.error(`❌ Error extrayendo datos masivos: ${e.message}`);
+        // Si falla la extracción, dejamos que pase al core ADK como fallback
       }
     }
 

@@ -4,7 +4,7 @@ import type { ISessionRepository } from '@agentes/domain';
 
 @Injectable()
 export class SessionsService {
-  private readonly SESSION_TIMEOUT_MINUTES = 30;
+  private readonly SESSION_TIMEOUT_MINUTES = 120;
 
   constructor(
     @Inject(SESSION_REPOSITORY_PORT)

@@ -173,13 +173,14 @@ export class RemindersService {
   }
 
   private calculateNextDeliveryDate(config: Record<string, string>, orderDateStr?: string): string {
+    const isGarbage = (val: string) => !val || val.toLowerCase().includes('frut') || val.toLowerCase().includes('futra');
     let date = 'Jueves';
 
-    if (config['FECHA_ENTREGA_EXACTA'] && config['FECHA_ENTREGA_EXACTA'].length > 3) {
+    if (config['FECHA_ENTREGA_EXACTA'] && config['FECHA_ENTREGA_EXACTA'].length > 3 && !isGarbage(config['FECHA_ENTREGA_EXACTA'])) {
       date = config['FECHA_ENTREGA_EXACTA'];
     } else {
-      const d1 = config['DIAS_ENTREGA_1'] || 'Jueves';
-      const d2 = config['DIAS_ENTREGA_2'] || 'Lunes';
+      const d1 = !isGarbage(config['DIAS_ENTREGA_1']) ? config['DIAS_ENTREGA_1'] : 'Jueves';
+      const d2 = !isGarbage(config['DIAS_ENTREGA_2']) ? config['DIAS_ENTREGA_2'] : 'Lunes';
 
       // Usar la fecha del pedido si existe, sino la actual
       const baseDate = orderDateStr ? new Date(orderDateStr) : new Date();
@@ -197,12 +198,6 @@ export class RemindersService {
       } else {
         date = d2; // Jueves o Domingo -> Lunes
       }
-    }
-
-    // Validación final de seguridad contra valores basura como "frutas" o "futras"
-    if (date.toLowerCase().includes('fruta') || date.toLowerCase().includes('futra')) {
-      this.logger.warn(`⚠️ Detectado valor basura en fecha de entrega para recordatorio: "${date}". Revirtiendo a Jueves.`);
-      return 'Jueves';
     }
 
     return date;
