@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id                 String   @id
+  name               String
+  phone              String
+  lid                String?
+  fullName           String?
+  documentType       String?
+  documentNumber     String?
+  email              String?
+  address            String?
+  city               String?
+  registrationSource String?
+  metadata           String? // JSON string
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  orders             Order[]
+}
+
+model SalesCycle {
+  id             String    @id @default(uuid())
+  name           String    // Ej: "Cosecha Sem 22"
+  startDate      DateTime  @default(now())
+  endDate        DateTime?
+  status         String    @default("OPEN") // OPEN, CLOSED
+  operatingCosts Float     @default(0)      // Gastos extra de la semana (gasolina, personal, etc)
+  orders         Order[]
+}
+
+model Order {
+  id                    String      @id
+  clientId              String
+  client                Client      @relation(fields: [clientId], references: [id])
+  salesCycleId          String?
+  salesCycle            SalesCycle? @relation(fields: [salesCycleId], references: [id])
+  agentId               String
+  deliveryFee           Float       @default(0)
+  total                 Float
+  status                String      @default("pending")
+  paymentConfirmationId String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  items                 OrderItem[]
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id])
+  productId String
+  name      String
+  quantity  Float
+  price     Float
+  unitCost  Float  @default(0)
+}
+
+model InventoryItem {
+  id              String   @id
+  name            String
+  stock           Float
+  price           Float
+  cost            Float    @default(0)
+  sales           Float    @default(0)
+  displayOrder    Int      @default(0)
+  weightGrams     Float?
+  unitsPerPackage Float?
+  packagingType   String?
+  description     String?
+  category        String?
+  updatedAt       DateTime @updatedAt
+}

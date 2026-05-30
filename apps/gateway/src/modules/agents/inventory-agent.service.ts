@@ -16,6 +16,26 @@ import { KnowledgeAgentService } from './knowledge-agent.service';
 export class InventoryAgentService {
   private readonly logger = new Logger(InventoryAgentService.name);
 
+  // Mapa de Alias descriptivos para el cliente (Centralizado)
+  private readonly productAliases: Record<string, string> = {
+    'PROD-TIL-01': 'TIL',
+    'PROD-HUE-JB': 'HJUM',
+    'PROD-HUE-GR': 'HGR',
+    'FRU-FRES-500': 'FRES',
+    'FRU-FREL-500': 'FREL',
+    'FRU-UCH-500': 'UCH',
+    'VER-TOS-500': 'TCH',
+    'FRU-ARA-500': 'ARAS',
+    'FRU-ARA-501': 'ARAM',
+    'FRU-ARA-502': 'ARAL',
+    'FRU-MOR-500': 'MOR',
+    'FRU-FRA-125': 'FRA',
+    'KIT-FRU-01': 'KITF',
+    'KIT-FRU-02': 'KITR',
+    'ABA-ARE-02': 'AREQ',
+    'ABA-ARE-01': 'AREM'
+  };
+
   constructor(
     @Inject(INVENTORY_PROVIDER_PORT)
     private readonly inventoryProvider: IInventoryProvider,
@@ -23,6 +43,19 @@ export class InventoryAgentService {
     private readonly clientRepository: IClientRepository,
     private readonly knowledgeAgent: KnowledgeAgentService,
   ) { }
+
+  /**
+   * Normaliza un texto para búsqueda (Remueve puntuación, artículos y términos comunes)
+   */
+  private normalizeSearch(text: string): string {
+    return (text || '')
+      .toLowerCase()
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
+      .replace(/un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco |unidades |uds |plus /gi, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toUpperCase();
+  }
 
   async handleRequest(request: AgentRequest): Promise<AgentResponse> {
     this.logger.log(`🤖 Inventory Agent recibiendo acción: ${request.action}`);
@@ -217,36 +250,10 @@ export class InventoryAgentService {
       }
     }
 
-    // Mapa de Alias descriptivos para el cliente
-    const productAliases: Record<string, string> = {
-      'PROD-TIL-01': 'TIL',
-      'PROD-HUE-JB': 'HJUM',
-      'PROD-HUE-GR': 'HGR',
-      'PROD-HUE-AAA': 'AAA', // Nuevo alias para Huevos AAA
-      'FRU-FRE-500': 'FRE',
-      'FRU-MOR-500': 'MOR',
-      'FRU-FRA-125': 'FRA',
-      'FRU-UCH-500': 'UCH',
-      'VER-TOS-500': 'TCH',
-      'FRU-ARA-500': 'ARAP',
-      'FRU-ARA-501': 'ARAM',
-      'FRU-ARA-502': 'ARAG',
-      'KIT-FRU-01': 'KIT',
-      'ABA-ARE-05': 'ARE'
-    };
-
-    // Normalización avanzada: remover puntuación, artículos y términos de acción comunes
-    const normalize = (text: string) => text
-      .toLowerCase()
-      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
-      .replace(/un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco |unidades |uds |plus /gi, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const cleanSearch = normalize(productName || '').toUpperCase();
+    const cleanSearch = this.normalizeSearch(productName || '');
 
     // 0. INTENTO: Match por Alias Amigable (Prioridad absoluta para el cliente)
-    const aliasMatchId = Object.keys(productAliases).find(id => productAliases[id] === cleanSearch);
+    const aliasMatchId = Object.keys(this.productAliases).find(id => this.productAliases[id] === cleanSearch);
     if (aliasMatchId) {
       const product = allProducts.find(p => p.id === aliasMatchId);
       if (product) {
@@ -255,7 +262,7 @@ export class InventoryAgentService {
     }
 
     // 1. INTENTO: Match Exacto (ID o Nombre)
-    const exactMatch = allProducts.find(p => p.id === cleanSearch || normalize(p.name).toUpperCase() === cleanSearch);
+    const exactMatch = allProducts.find(p => p.id === cleanSearch || this.normalizeSearch(p.name) === cleanSearch);
 
     if (exactMatch) {
       return this.processProductMatch(exactMatch, requestedQuantity, request.from as any);
@@ -264,7 +271,7 @@ export class InventoryAgentService {
     // 2. INTENTO: Búsqueda Flexible para Catálogo (Búsqueda Inversa)
     // Si el texto de búsqueda contiene el nombre del producto o viceversa
     const catalogMatch = allProducts.find(p => {
-      const pName = normalize(p.name).toUpperCase();
+      const pName = this.normalizeSearch(p.name);
       return cleanSearch.includes(pName) || pName.includes(cleanSearch);
     });
 
@@ -274,20 +281,20 @@ export class InventoryAgentService {
     }
 
     // 3. INTENTO: Empieza por (Prefix Match)
-    const prefixMatches = allProducts.filter(p => normalize(p.name).startsWith(cleanSearch));
+    const prefixMatches = allProducts.filter(p => this.normalizeSearch(p.name).startsWith(cleanSearch));
     if (prefixMatches.length === 1) {
       return this.processProductMatch(prefixMatches[0], requestedQuantity, request.from as any);
     }
 
     // 3. INTENTO: Contiene (Substring Match)
-    const substringMatches = allProducts.filter(p => normalize(p.name).includes(cleanSearch));
+    const substringMatches = allProducts.filter(p => this.normalizeSearch(p.name).includes(cleanSearch));
 
     // Regla especial para huevos si es ambiguo
-    const isEggQuery = cleanSearch.includes('huevo');
+    const isEggQuery = cleanSearch.includes('HUEVO');
     if (isEggQuery) {
-      const hasSize = cleanSearch.includes('jumbo') || cleanSearch.includes('grande');
+      const hasSize = cleanSearch.includes('JUMBO') || cleanSearch.includes('GRANDE');
       if (!hasSize) {
-        const eggOptions = allProducts.filter(p => normalize(p.name).includes('huevo'));
+        const eggOptions = allProducts.filter(p => this.normalizeSearch(p.name).includes('HUEVO'));
         if (eggOptions.length > 0) {
           return {
             from: 'inventory-agent',
@@ -323,7 +330,7 @@ export class InventoryAgentService {
     // 4. INTENTO: Fallback de términos (Legacy logic mejorada)
     const searchTerms = cleanSearch.split(' ').filter((t) => t.length > 2);
     const fuzzyCandidates = allProducts.filter((p) => {
-      const pName = normalize(p.name);
+      const pName = this.normalizeSearch(p.name);
       return searchTerms.some((term) => pName.includes(term));
     });
 
@@ -437,22 +444,15 @@ export class InventoryAgentService {
   }
 
   private findProductInList(allProducts: ProductInventory[], productName: string): ProductInventory | null {
-    const normalize = (text: string) => (text || '')
-      .toLowerCase()
-      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
-      .replace(/un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco |unidades |uds |plus /gi, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const cleanSearch = normalize(productName).toUpperCase();
+    const cleanSearch = this.normalizeSearch(productName);
 
     // 1. Match exacto
-    const exact = allProducts.find(p => normalize(p.name).toUpperCase() === cleanSearch || p.id === cleanSearch);
+    const exact = allProducts.find(p => this.normalizeSearch(p.name) === cleanSearch || p.id === cleanSearch);
     if (exact) return exact;
 
     // 2. Similitud
     return allProducts.find(p => {
-      const pName = normalize(p.name).toUpperCase();
+      const pName = this.normalizeSearch(p.name);
       return cleanSearch.includes(pName) || pName.includes(cleanSearch);
     }) || null;
   }

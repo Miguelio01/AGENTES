@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              frescoh: {
+                dark: '#005035',
+                lime: '#B5F543',
+                light: '#E6F4EA'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
+        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="p-4 md:p-8" x-data="ordersApp()">
+    
+    <%- include('partials/ui-stack') %>
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div class="flex items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-black text-frescoh-dark flex items-center gap-2 uppercase tracking-tight">
+                        FRESCOH! <span class="text-frescoh-lime bg-frescoh-dark px-2 py-0.5 rounded">ÓRDENES</span>
+                    </h1>
+                    <p class="text-gray-500 font-medium">Historial y Control de Pedidos</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/admin/orders/export-xlsx" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg hover:opacity-90 transition text-sm flex items-center gap-2">
+                    📥 Descargar Excel
+                </a>
+                <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm">Volver a Inventario</a>
+            </div>
+        </header>
+
+        <main>
+            <!-- Dashboard Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="card p-6 border-l-4 border-l-frescoh-dark flex flex-col justify-center h-full">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider font-black text-center">Total Pedidos</p>
+                    <p class="text-4xl font-bold text-frescoh-dark text-center mt-2" x-text="orders.length"></p>
+                </div>
+                <div class="card p-6 border-l-4 border-l-frescoh-lime flex flex-col justify-center h-full">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider font-black text-center">Ingresos Brutos</p>
+                    <p class="text-4xl font-bold text-frescoh-dark text-center mt-2" x-text="formatCurrency(totalRevenue)"></p>
+                </div>
+                <div class="card p-6 border-l-4 border-l-blue-500 flex flex-col justify-center h-full">
+                    <p class="text-gray-500 text-xs uppercase tracking-wider font-black text-center">Con Domicilio</p>
+                    <p class="text-4xl font-bold text-blue-600 text-center mt-2" x-text="ordersWithDelivery"></p>
+                </div>
+            </div>
+
+            <!-- Tabla de Pedidos -->
+            <div class="card overflow-hidden mb-12 border-l-4 border-l-frescoh-lime shadow-lg">
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">📋 Historial de Órdenes</h3>
+                    </div>
+                    <input type="text" x-model="search" placeholder="Buscar por ID, Cliente o Teléfono..." class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full md:w-72 bg-white">
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[900px]">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Fecha</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">ID Pedido</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Cliente</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">Productos</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Subtotal</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Domicilio</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Total</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <template x-for="order in filteredOrders" :key="order.id">
+                                <tr class="hover:bg-frescoh-light/30 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <div class="font-bold text-gray-800 text-xs" x-text="formatDate(order.createdAt).split(',')[0]"></div>
+                                        <div class="text-[10px] text-gray-400 font-mono" x-text="formatDate(order.createdAt).split(',')[1]"></div>
+                                    </td>
+                                    <td class="px-6 py-4 font-mono text-xs font-bold text-frescoh-dark" x-text="order.id"></td>
+                                    <td class="px-6 py-4">
+                                        <div class="font-bold text-gray-800 text-sm capitalize" x-text="order.client.fullName || order.client.name"></div>
+                                        <div class="text-[11px] text-gray-500" x-text="order.client.phone"></div>
+                                    </td>
+                                    <td class="px-6 py-4 text-[11px] text-gray-600 hidden md:table-cell">
+                                        <ul class="list-disc list-inside">
+                                            <template x-for="item in order.items">
+                                                <li>
+                                                    <span x-text="`${item.quantity}x ${item.name}`"></span>
+                                                    <span class="text-gray-400 font-mono ml-1" x-text="`(${formatCurrency(item.price)})`"></span>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </td>
+                                    <td class="px-6 py-4 text-right font-medium text-gray-700" x-text="formatCurrency(order.subtotal)"></td>
+                                    <td class="px-6 py-4 text-right text-sm min-w-[140px]">
+                                        <div x-show="!order.isEditingFee" class="flex items-center justify-end gap-2 group">
+                                            <span x-show="order.deliveryFee > 0" class="text-gray-800 font-medium" x-text="formatCurrency(order.deliveryFee)"></span>
+                                            <span x-show="order.deliveryFee === 0" class="text-gray-400 italic text-[11px] bg-gray-100 px-2 py-1 rounded">No (Recoge)</span>
+                                            <button @click="order.isEditingFee = true" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-frescoh-dark transition cursor-pointer">✏️</button>
+                                        </div>
+                                        <div x-show="order.isEditingFee" class="flex items-center justify-end gap-1">
+                                            <input type="number" x-model.number="order.newDeliveryFee" class="w-16 border border-gray-300 rounded text-right text-[11px] px-1 focus:ring-1 focus:ring-frescoh-dark outline-none bg-white">
+                                            <button @click="saveDeliveryFee(order)" class="text-[9px] uppercase font-bold bg-frescoh-lime text-frescoh-dark px-1.5 py-1 rounded hover:opacity-80 shadow-sm cursor-pointer">Ok</button>
+                                            <button @click="order.isEditingFee = false; order.newDeliveryFee = order.deliveryFee" class="text-[10px] text-gray-500 hover:text-red-500 cursor-pointer">✖</button>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-right font-black text-frescoh-dark" x-text="formatCurrency(order.total)"></td>
+                                    <td class="px-6 py-4 text-center">
+                                        <div x-show="!order.isEditingStatus">
+                                            <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:opacity-80 shadow-sm border"
+                                                @click="order.isEditingStatus = true"
+                                                :class="{
+                                                    'bg-yellow-50 text-yellow-700 border-yellow-200': order.status === 'pending',
+                                                    'bg-blue-50 text-blue-700 border-blue-200': order.status === 'confirmed',
+                                                    'bg-frescoh-light text-frescoh-dark border-frescoh-lime': order.status === 'delivered',
+                                                    'bg-red-50 text-red-700 border-red-200': order.status === 'cancelled'
+                                                }" x-text="order.status"></span>
+                                        </div>
+                                        <div x-show="order.isEditingStatus" class="flex items-center justify-center gap-1">
+                                            <select x-model="order.newStatus" class="text-[10px] border border-gray-300 rounded px-1 py-1 focus:ring-1 focus:ring-frescoh-dark outline-none bg-white font-bold uppercase">
+                                                <option value="pending">Pending</option>
+                                                <option value="confirmed">Confirmed</option>
+                                                <option value="delivered">Delivered</option>
+                                                <option value="cancelled">Cancelled</option>
+                                            </select>
+                                            <button @click="saveStatus(order)" class="text-[9px] uppercase font-bold bg-frescoh-lime text-frescoh-dark px-1.5 py-1 rounded hover:opacity-80 shadow-sm cursor-pointer">Ok</button>
+                                            <button @click="order.isEditingStatus = false; order.newStatus = order.status" class="text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✖</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+
+                            <tr x-show="filteredOrders.length === 0">
+                                <td colspan="8" class="px-6 py-12 text-center text-gray-500 italic">
+                                    No se encontraron órdenes.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function ordersApp() {
+            return {
+                orders: <%- JSON.stringify(orders) %>,
+                search: '',
+                
+                init() {
+                    this.orders.forEach(o => {
+                        o.subtotal = o.total - o.deliveryFee;
+                        o.newDeliveryFee = o.deliveryFee;
+                        o.isEditingFee = false;
+                        o.isEditingStatus = false;
+                        o.newStatus = o.status;
+                    });
+                },
+
+                get filteredOrders() {
+                    if (!this.search) return this.orders;
+                    const s = this.search.toLowerCase();
+                    return this.orders.filter(o => 
+                        o.id.toLowerCase().includes(s) || 
+                        (o.client.name && o.client.name.toLowerCase().includes(s)) ||
+                        (o.client.fullName && o.client.fullName.toLowerCase().includes(s)) ||
+                        (o.client.phone && o.client.phone.includes(s))
+                    );
+                },
+
+                get totalRevenue() {
+                    return this.orders.reduce((sum, order) => sum + (order.total || 0), 0);
+                },
+
+                get ordersWithDelivery() {
+                    return this.orders.filter(o => o.deliveryFee > 0).length;
+                },
+
+                formatCurrency(value) {
+                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value || 0);
+                },
+
+                formatDate(dateString) {
+                    if (!dateString) return 'N/A';
+                    const d = new Date(dateString);
+                    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                },
+
+                async saveDeliveryFee(order) {
+                    if (order.newDeliveryFee === null || order.newDeliveryFee === undefined) return;
+                    
+                    try {
+                        const response = await fetch(`/admin/orders/api/${order.id}/delivery-fee`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ deliveryFee: order.newDeliveryFee })
+                        });
+                        
+                        if (response.ok) {
+                            const res = await response.json();
+                            if (res.status === 'SUCCESS') {
+                                order.deliveryFee = order.newDeliveryFee;
+                                order.total = res.newTotal;
+                                order.isEditingFee = false;
+                            }
+                        } else {
+                            alert('No se pudo guardar el domicilio.');
+                        }
+                    } catch (e) {
+                        alert('Error de conexión: ' + e.message);
+                    }
+                },
+
+                async saveStatus(order) {
+                    try {
+                        const response = await fetch(`/admin/orders/api/${order.id}/status`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: order.newStatus })
+                        });
+                        
+                        if (response.ok) {
+                            const res = await response.json();
+                            if (res.status === 'SUCCESS') {
+                                order.status = order.newStatus;
+                                order.isEditingStatus = false;
+                                alert('Estado actualizado y sincronizado con Excel ✅');
+                            }
+                        } else {
+                            alert('No se pudo actualizar el estado.');
+                        }
+                    } catch (e) {
+                        alert('Error de conexión: ' + e.message);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

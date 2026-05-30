@@ -7,6 +7,9 @@ export interface ProductInventory {
   name: string;
   stock: number;
   price: number;
+  cost?: number;
+  sales?: number;
+  displayOrder?: number;
   weightGrams?: number;
   unitsPerPackage?: number;
   packagingType?: string;
@@ -58,9 +61,9 @@ export interface IInventoryProvider {
   listProducts(): Promise<ProductInventory[]>;
 
   /**
-   * Actualiza el stock de un producto tras un pedido
+   * Actualiza el stock de un producto tras un pedido o edición manual
    */
-  updateStock(productId: string, quantityChange: number): Promise<void>;
+  updateStock(productId: string, quantityChange: number, absoluteStock?: number): Promise<void>;
 
   /**
    * Registra un nuevo pedido en la hoja de pedidos de Google Sheets

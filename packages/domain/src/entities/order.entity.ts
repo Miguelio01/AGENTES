@@ -5,14 +5,16 @@ export interface OrderItem {
   name: string;
   quantity: number;
   price: number;
+  unitCost?: number;
 }
 
 export interface OrderProps {
   id: string;
   clientId: string;
   agentId: string;
+  salesCycleId?: string;
   items: OrderItem[];
-  deliveryFee: number;
+  deliveryFee?: number;
   total: number;
   status: OrderStatus;
   paymentConfirmationId?: string;
@@ -26,8 +28,17 @@ export class Order {
   get id(): string { return this.props.id; }
   get clientId(): string { return this.props.clientId; }
   get agentId(): string { return this.props.agentId; }
-  get items(): OrderItem[] { return [...this.props.items]; }
-  get deliveryFee(): number { return this.props.deliveryFee; }
+  get salesCycleId(): string | undefined {
+    return this.props.salesCycleId;
+  }
+
+  get items(): OrderItem[] {
+    return [...this.props.items];
+  }
+
+  get deliveryFee(): number {
+    return this.props.deliveryFee || 0;
+  }
   get total(): number { return this.props.total; }
   get status(): OrderStatus { return this.props.status; }
   get paymentConfirmationId(): string | undefined { return this.props.paymentConfirmationId; }

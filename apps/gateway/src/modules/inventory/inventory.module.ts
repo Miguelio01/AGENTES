@@ -2,14 +2,22 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { INVENTORY_PROVIDER_PORT } from '@agentes/domain';
 import { GoogleSheetsInventoryAdapter } from '@agentes/infrastructure';
+import { PrismaInventoryAdapter } from './prisma-inventory.adapter';
+import { SheetsSyncListener } from './sheets-sync.listener';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { InventoryAdminController } from './inventory-admin.controller';
+import { OrdersAdminController } from './orders-admin.controller';
+import { SalesCyclesAdminController } from './sales-cycles.controller';
+
 @Module({
   imports: [ConfigModule],
+  controllers: [InventoryAdminController, OrdersAdminController, SalesCyclesAdminController],
   providers: [
+    SheetsSyncListener,
     {
-      provide: INVENTORY_PROVIDER_PORT,
+      provide: 'GOOGLE_SHEETS_ADAPTER_INTERNAL',
       useFactory: (configService: ConfigService) => {
         const spreadsheetId =
           configService.get<string>('GOOGLE_SHEETS_INVENTORY_ID') || 'mock-id';
@@ -37,6 +45,10 @@ import * as path from 'path';
         );
       },
       inject: [ConfigService],
+    },
+    {
+      provide: INVENTORY_PROVIDER_PORT,
+      useClass: PrismaInventoryAdapter,
     },
   ],
   exports: [INVENTORY_PROVIDER_PORT],

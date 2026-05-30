@@ -1,0 +1,154 @@
+<!-- Frescoh! Toast & Modal Global Component -->
+<div x-data="frescohUI()" @notify.window="addToast($event.detail)" @confirm.window="showConfirm($event.detail)" x-cloak>
+    
+    <!-- Toast Stack -->
+    <div class="fixed top-4 right-4 z-[9999] flex flex-col gap-3 w-full max-w-xs md:max-w-sm pointer-events-none">
+        <template x-for="toast in toasts" :key="toast.id">
+            <div 
+                x-show="toast.show"
+                x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 transform translate-x-12"
+                x-transition:enter-end="opacity-100 transform translate-x-0"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100 transform translate-x-0"
+                x-transition:leave-end="opacity-0 transform translate-x-12"
+                class="pointer-events-auto bg-white rounded-xl shadow-2xl border-l-4 p-4 flex items-start gap-3 relative overflow-hidden"
+                :class="{
+                    'border-l-green-500': toast.type === 'success',
+                    'border-l-red-500': toast.type === 'error',
+                    'border-l-orange-500': toast.type === 'warning',
+                    'border-l-blue-500': toast.type === 'info'
+                }"
+            >
+                <div class="flex-shrink-0 mt-0.5">
+                    <template x-if="toast.type === 'success'">
+                        <span class="text-green-500 text-xl">✅</span>
+                    </template>
+                    <template x-if="toast.type === 'error'">
+                        <span class="text-red-500 text-xl">❌</span>
+                    </template>
+                    <template x-if="toast.type === 'warning'">
+                        <span class="text-orange-500 text-xl">⚠️</span>
+                    </template>
+                    <template x-if="toast.type === 'info'">
+                        <span class="text-blue-500 text-xl">ℹ️</span>
+                    </template>
+                </div>
+                <div class="flex-1">
+                    <p class="text-sm font-bold text-gray-800 uppercase tracking-tight" x-text="toast.title || 'Notificación'"></p>
+                    <p class="text-xs text-gray-500 font-medium mt-0.5" x-text="toast.message"></p>
+                </div>
+                <button @click="removeToast(toast.id)" class="text-gray-300 hover:text-gray-600 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <!-- Progress Bar -->
+                <div class="absolute bottom-0 left-0 h-0.5 bg-gray-100 w-full">
+                    <div class="h-full bg-opacity-30" :class="{
+                        'bg-green-500': toast.type === 'success',
+                        'bg-red-500': toast.type === 'error',
+                        'bg-orange-500': toast.type === 'warning',
+                        'bg-blue-500': toast.type === 'info'
+                    }" :style="`width: ${toast.progress}%`" style="transition: width 50ms linear"></div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Global Confirmation Modal -->
+    <div x-show="confirmModal.show" 
+         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[10000] flex items-center justify-center p-4"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+    >
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm border border-gray-100 overflow-hidden" @click.away="handleConfirm(false)">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 bg-frescoh-light rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span class="text-3xl" x-text="confirmModal.icon || '❓'"></span>
+                </div>
+                <h2 class="text-xl font-black text-frescoh-dark uppercase tracking-tight" x-text="confirmModal.title"></h2>
+                <p class="text-gray-500 text-sm font-medium mt-2" x-text="confirmModal.message"></p>
+            </div>
+            <div class="bg-gray-50 p-4 flex gap-3">
+                <button @click="handleConfirm(false)" class="flex-1 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 font-bold text-xs uppercase tracking-wide hover:bg-gray-100 transition">
+                    Cancelar
+                </button>
+                <button @click="handleConfirm(true)" class="flex-1 px-4 py-2 bg-frescoh-dark text-frescoh-lime rounded-lg font-black text-xs uppercase tracking-wide shadow-lg hover:opacity-90 transition">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function frescohUI() {
+    return {
+        toasts: [],
+        confirmModal: {
+            show: false,
+            title: '',
+            message: '',
+            icon: '❓',
+            resolve: null
+        },
+
+        addToast({ title, message, type = 'info', duration = 4000 }) {
+            const id = Date.now();
+            const toast = { id, title, message, type, show: true, progress: 100 };
+            this.toasts.push(toast);
+
+            const startTime = Date.now();
+            const interval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = Math.max(0, duration - elapsed);
+                toast.progress = (remaining / duration) * 100;
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    this.removeToast(id);
+                }
+            }, 50);
+        },
+
+        removeToast(id) {
+            const index = this.toasts.findIndex(t => t.id === id);
+            if (index !== -1) {
+                this.toasts[index].show = false;
+                setTimeout(() => {
+                    this.toasts = this.toasts.filter(t => t.id !== id);
+                }, 300);
+            }
+        },
+
+        showConfirm({ title, message, icon = '❓' }) {
+            this.confirmModal.title = title;
+            this.confirmModal.message = message;
+            this.confirmModal.icon = icon;
+            this.confirmModal.show = true;
+            return new Promise((resolve) => {
+                this.confirmModal.resolve = resolve;
+            });
+        },
+
+        handleConfirm(result) {
+            this.confirmModal.show = false;
+            if (this.confirmModal.resolve) {
+                this.confirmModal.resolve(result);
+                this.confirmModal.resolve = null;
+            }
+        }
+    }
+}
+
+// Helper functions to call from other scripts
+window.frescohNotify = (detail) => window.dispatchEvent(new CustomEvent('notify', { detail }));
+window.frescohConfirm = (detail) => {
+    // Custom logic to handle the promise from dispatchEvent isn't native, 
+    // so we access the Alpine data directly for confirmation since it returns a promise.
+    const ui = document.querySelector('[x-data="frescohUI()"]').__x.$data;
+    return ui.showConfirm(detail);
+};
+</script>

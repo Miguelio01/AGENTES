@@ -143,8 +143,40 @@ export class OrchestratorService {
     try {
       const response = await this.callAdkCore(message, client, session);
 
+      if (!response || response.metadata?.agent === 'error') {
+        throw new Error(response?.reply || 'Error interno del cerebro ADK');
+      }
+
+      let safeReply = response.reply;
+      // Filtro heurístico para detectar si el LLM devolvió código Python o JSON en lugar de texto conversacional
+      const isHallucination = safeReply.includes('```') || 
+                              safeReply.includes('import json') || 
+                              safeReply.includes('def ') || 
+                              safeReply.includes('print(') || 
+                              safeReply.includes('subtotal =');
+      
+      if (isHallucination) {
+        this.logger.error(`🚨 ALUCINACIÓN DETECTADA: El agente ADK devolvió código crudo. Interceptando mensaje. Contenido original:\n${safeReply}`);
+        
+        // Mensaje de fallback para el cliente
+        safeReply = '¡Ay, sumercé! Tuve un inconveniente técnico procesando su solicitud y me enredé un poco. Ya le avisé a Miguel para que lo atienda personalmente en unos minuticos. ¡Mil disculpas por la espera!';
+        
+        // Escalar inmediatamente al administrador
+        try {
+          await this.escalationAgent.handleRequest({
+            from: 'orchestrator' as any,
+            to: 'escalation-agent' as any,
+            action: 'escalate',
+            context: { clientId: client.id, clientName: client.name },
+            data: { question: `🚨 FALLO CRÍTICO (ALUCINACIÓN): El bot generó código Python/JSON crudo en lugar de responder. El mensaje ha sido interceptado.\n\nEl cliente intentaba decir:\n"${message.content}"\n\nPor favor atiende al cliente personalmente.` }
+          });
+        } catch (e) {
+          this.logger.error(`Error al intentar escalar alucinación: ${e.message}`);
+        }
+      }
+
       const reply = Message.create({
-        content: response.reply,
+        content: safeReply,
         role: 'assistant',
         channel: message.channel,
       });
@@ -172,11 +204,27 @@ export class OrchestratorService {
     } catch (error) {
       this.logger.error(`❌ Error en comunicación A2A: ${error.message}`);
       await presenceCallback(false);
+      
+      const fallbackMsg = '¡Ay, sumercé! Qué pena con usted, pero me dio un vahído técnico y no pude procesar su mensaje. Ya le avisé a Miguel para que lo atienda personalmente en unos minutos. ¡Gracias por su paciencia!';
+      
       await replyCallback(Message.create({
-        content: '¡Qué pena! Me distraje un momento y no pude terminar de hablar. ¿Me podría repetir lo último?',
+        content: fallbackMsg,
         role: 'assistant',
         channel: message.channel,
       }));
+
+      // Escalar al administrador
+      try {
+        await this.escalationAgent.handleRequest({
+          from: 'orchestrator' as any,
+          to: 'escalation-agent' as any,
+          action: 'escalate',
+          context: { clientId: client.id, clientName: client.name },
+          data: { question: `🚨 FALLO DE COMUNICACIÓN/INTELIGENCIA: El bot falló al procesar el mensaje (Error: ${error.message}). He enviado el mensaje de disculpa al cliente. Por favor, toma el control de la conversación.` }
+        });
+      } catch (e) {
+        this.logger.error(`Fallo al escalar error A2A: ${e.message}`);
+      }
     }
   }
 

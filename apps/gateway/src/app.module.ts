@@ -16,6 +16,7 @@ import { MetricsModule } from './modules/metrics/metrics.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { RemindersModule } from './modules/reminders/reminders.module';
       }),
       inject: [ConfigService],
     }),
+    PrismaModule,
     AgentsModule,
     SessionsModule,
     ClientsModule,

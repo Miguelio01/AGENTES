@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              frescoh: {
+                dark: '#005035',
+                lime: '#B5F543',
+                light: '#E6F4EA'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
+        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="p-4 md:p-8" x-data="inventoryApp()">
+    
+    <%- include('partials/ui-stack') %>
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div class="flex items-center gap-4">
+                <div>
+                    <h1 class="text-3xl font-black text-frescoh-dark flex items-center gap-2 uppercase tracking-tight">
+                        FRESCOH! <span class="text-frescoh-lime bg-frescoh-dark px-2 py-0.5 rounded">INVENTARIO</span>
+                    </h1>
+                    <div class="flex items-center gap-2 mt-1">
+                        <p class="text-gray-500 font-medium text-xs">Catálogo Inteligente</p>
+                        <% if (activeCycle) { %>
+                            <span class="text-[9px] bg-frescoh-lime/20 text-frescoh-dark border border-frescoh-lime px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
+                                🚜 Cosecha: <%= activeCycle.name %>
+                            </span>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/admin/cycles" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Ver Cosechas</a>
+                <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Ver Órdenes</a>
+                <button @click="openModal = true" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-bold shadow-lg hover:opacity-90 transition text-xs">
+                    + Nuevo Producto
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Dashboard Stats & Chart -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+                <div class="lg:col-span-3 card p-6 relative">
+                    <div class="flex justify-between items-center mb-4 border-b pb-4">
+                        <h2 class="text-lg font-bold text-frescoh-dark uppercase tracking-tight italic">Tendencia de Cosecha (Stock vs Ventas)</h2>
+                        <div class="flex gap-4 text-[9px] font-black uppercase tracking-widest">
+                            <div class="flex items-center gap-1.5 text-frescoh-dark">
+                                <span class="w-3 h-3 bg-frescoh-dark rounded-sm"></span> Stock
+                            </div>
+                            <div class="flex items-center gap-1.5 text-blue-600">
+                                <span class="w-3 h-3 bg-blue-600 rounded-full"></span> Ventas Ciclo
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="stockChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col gap-4">
+                    <div class="card p-4 border-l-4 border-l-frescoh-dark flex flex-col justify-center h-full">
+                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Productos Activos</p>
+                        <p class="text-3xl font-bold text-frescoh-dark text-center mt-1" x-text="products.length"></p>
+                    </div>
+                    <div class="card p-4 border-l-4 border-l-blue-600 flex flex-col justify-center h-full bg-blue-50/20">
+                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Vendido Hoy (Día)</p>
+                        <p class="text-3xl font-bold text-blue-600 text-center mt-1" x-text="todaySalesTotal"></p>
+                    </div>
+                    <div class="card p-4 border-l-4 border-l-frescoh-lime flex flex-col justify-center h-full bg-frescoh-light/10">
+                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Vendido en Ciclo (Global)</p>
+                        <p class="text-3xl font-bold text-frescoh-dark text-center mt-1" x-text="cycleSalesTotal"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ingesta de Cantidades (Tabla) -->
+            <div class="card overflow-hidden mb-12 border-l-4 border-l-frescoh-lime shadow-lg">
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">📦 Gestión de Stock y Rendimiento</h3>
+                    </div>
+                    <input type="text" x-model="search" placeholder="Buscar producto..." class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full md:w-64 bg-white">
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[900px]">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Producto</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase hidden sm:table-cell">Precio</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center bg-blue-50/50">Vendido Hoy</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center bg-frescoh-light/20">Vendido Ciclo</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Stock Actual</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Ingesta</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 font-medium">
+                            <template x-for="product in filteredProducts" :key="product.id">
+                                <tr class="hover:bg-frescoh-light/30 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <div class="font-bold text-gray-800 capitalize text-sm" x-text="product.name"></div>
+                                        <div class="text-[9px] text-gray-400 font-mono" x-text="product.id"></div>
+                                    </td>
+                                    <td class="px-6 py-4 text-xs font-bold text-frescoh-dark hidden sm:table-cell" x-text="formatCurrency(product.price)"></td>
+                                    
+                                    <!-- Vendido Hoy (Día - Columna D de Excel) -->
+                                    <td class="px-6 py-4 text-center bg-blue-50/30">
+                                        <span class="px-3 py-1 rounded-full text-[10px] font-black bg-blue-600 text-white shadow-sm" 
+                                            x-text="product.todaySales || 0">
+                                        </span>
+                                    </td>
+
+                                    <!-- Vendido Ciclo (Calculado SQLite) -->
+                                    <td class="px-6 py-4 text-center bg-frescoh-light/10">
+                                        <div class="flex flex-col items-center">
+                                            <span class="px-3 py-1 rounded-full text-[10px] font-black bg-frescoh-dark text-frescoh-lime shadow-sm" 
+                                                x-text="product.cycleSales || 0">
+                                            </span>
+                                            <span class="text-[8px] text-gray-400 font-bold mt-1 uppercase italic" x-text="'Empaque: ' + (product.packagingType || 'N/A')"></span>
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Stock Actual (Editable Directamente) -->
+                                    <td class="px-6 py-4 text-center">
+                                        <div x-show="!product.isEditingStock" @click="product.isEditingStock = true; product.newStockValue = product.stock" class="group cursor-pointer">
+                                            <span :class="product.stock <= 0 ? 'bg-red-50 text-red-600 border-red-200' : (product.stock <= 5 ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-gray-100 text-frescoh-dark border-gray-200')" 
+                                                class="px-3 py-1.5 rounded text-[11px] font-black block mx-auto w-max border group-hover:border-frescoh-dark transition-all shadow-sm" 
+                                                x-text="product.stock">
+                                            </span>
+                                        </div>
+                                        <div x-show="product.isEditingStock" class="flex items-center justify-center gap-1" @click.away="product.isEditingStock = false">
+                                            <input type="number" x-model.number="product.newStockValue" class="w-14 h-8 border border-gray-300 rounded text-center text-xs focus:ring-1 focus:ring-frescoh-dark outline-none bg-white font-black">
+                                            <button @click="saveStockDirect(product)" class="text-[9px] uppercase font-black bg-frescoh-dark text-frescoh-lime px-2 py-1 rounded hover:opacity-80 shadow-md h-8">Ok</button>
+                                        </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-center">
+                                        <div class="flex items-center justify-center gap-1 md:gap-2">
+                                            <button @click="updateStock(product.id, -1)" class="w-8 h-8 rounded bg-gray-100 text-gray-600 hover:bg-red-500 hover:text-white transition shadow-sm text-lg font-bold flex items-center justify-center">-</button>
+                                            <input type="number" x-model.number="product.inputQty" class="w-12 h-8 border border-gray-300 rounded text-center text-xs focus:ring-1 focus:ring-frescoh-dark outline-none bg-white font-bold" placeholder="0">
+                                            <button @click="updateStock(product.id, 1)" class="w-8 h-8 rounded bg-gray-100 text-gray-600 hover:bg-frescoh-dark hover:text-white transition shadow-sm text-lg font-bold flex items-center justify-center">+</button>
+                                            <button @click="saveBatch(product)" class="ml-1 md:ml-2 text-[9px] uppercase font-black bg-frescoh-lime text-frescoh-dark px-3 py-1.5 rounded hover:opacity-80 shadow-md">Aplicar</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot class="bg-frescoh-dark text-white font-black uppercase tracking-widest text-[10px]">
+                            <tr>
+                                <th class="px-6 py-5">Totales del Sistema</th>
+                                <th class="px-6 py-5 hidden sm:table-cell">--</th>
+                                <th class="px-6 py-5 text-center bg-blue-500/20 text-blue-200" x-text="todaySalesTotal"></th>
+                                <th class="px-6 py-5 text-center bg-frescoh-lime/10" x-text="cycleSalesTotal"></th>
+                                <th class="px-6 py-5 text-center text-frescoh-lime text-lg" x-text="totalStockValue"></th>
+                                <th class="px-6 py-5 text-center">--</th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Nuevo Producto -->
+    <div x-show="openModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-cloak x-transition>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-y-auto max-h-[90vh] border border-gray-200" @click.away="openModal = false">
+            <div class="frescoh-gradient p-6 text-white sticky top-0 border-b border-frescoh-dark">
+                <h2 class="text-xl font-black uppercase tracking-tight">Crear Nuevo Producto</h2>
+                <p class="text-frescoh-lime/80 text-xs font-medium uppercase mt-1">Catálogo Frescoh!</p>
+            </div>
+            <form @submit.prevent="createProduct" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">ID / SKU</label>
+                        <input type="text" x-model="newProduct.id" required class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 text-sm" placeholder="FRU-NOM-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Nombre</label>
+                        <input type="text" x-model="newProduct.name" required class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 text-sm" placeholder="Ej: Fresas">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Precio Unit.</label>
+                        <input type="number" x-model="newProduct.price" required class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 text-sm" placeholder="15000">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Stock Inicial</label>
+                        <input type="number" x-model="newProduct.stock" required class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 text-sm" placeholder="10">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Tipo Empaque</label>
+                    <input type="text" x-model="newProduct.packagingType" class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 text-sm" placeholder="Caja, Bandeja, Bolsa...">
+                </div>
+                <div class="flex flex-col-reverse md:flex-row justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
+                    <button type="button" @click="openModal = false" class="text-gray-500 bg-gray-100 px-4 py-2 rounded hover:bg-gray-200 transition font-bold text-xs uppercase tracking-wide">Cancelar</button>
+                    <button type="submit" class="bg-frescoh-dark text-frescoh-lime px-6 py-2 rounded font-black hover:opacity-90 shadow-md transition text-xs uppercase tracking-wide">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts App -->
+    <script>
+        function inventoryApp() {
+            return {
+                products: <%- JSON.stringify(products) %>,
+                search: '',
+                openModal: false,
+                chart: null,
+                newProduct: {
+                    id: '', name: '', price: 0, stock: 0, packagingType: 'Caja'
+                },
+
+                init() {
+                    this.initChart();
+                    this.products.forEach(p => {
+                        p.inputQty = 0;
+                        p.isEditingStock = false;
+                        p.newStockValue = p.stock || 0;
+                    });
+                },
+
+                get filteredProducts() {
+                    if (!this.search) return this.products;
+                    const s = this.search.toLowerCase();
+                    return this.products.filter(p => p.name.toLowerCase().includes(s) || p.id.toLowerCase().includes(s));
+                },
+
+                get outOfStockCount() {
+                    return this.products.filter(p => p.stock <= 5).length;
+                },
+
+                get totalSales() {
+                    return this.products.reduce((acc, p) => acc + (p.sales || 0), 0);
+                },
+
+                get cycleSalesTotal() {
+                    return this.products.reduce((acc, p) => acc + (p.cycleSales || 0), 0);
+                },
+
+                get todaySalesTotal() {
+                    return this.products.reduce((acc, p) => acc + (p.todaySales || 0), 0);
+                },
+
+                get totalStockValue() {
+                    return this.products.reduce((acc, p) => acc + (p.stock || 0), 0);
+                },
+
+                initChart() {
+                    const ctx = document.getElementById('stockChart').getContext('2d');
+                    this.chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: this.getChartData(),
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: { mode: 'index', intersect: false }
+                            },
+                            scales: { 
+                                y: { beginAtZero: true, grid: { color: '#f3f4f6' } },
+                                x: { grid: { display: false } }
+                            }
+                        }
+                    });
+                },
+
+                getChartData() {
+                    const labels = this.products.map(p => p.name);
+                    const stockData = this.products.map(p => p.stock);
+                    const cycleSalesData = this.products.map(p => p.cycleSales || 0);
+
+                    return {
+                        labels: labels,
+                        datasets: [
+                            {
+                                type: 'line',
+                                label: 'Ventas Ciclo',
+                                data: cycleSalesData,
+                                borderColor: '#3b82f6',
+                                backgroundColor: '#3b82f6',
+                                borderWidth: 3,
+                                pointRadius: 4,
+                                pointBackgroundColor: '#fff',
+                                pointBorderColor: '#3b82f6',
+                                tension: 0.4,
+                                order: 1
+                            },
+                            {
+                                type: 'bar',
+                                label: 'Stock Actual',
+                                data: stockData,
+                                backgroundColor: this.products.map(p => p.stock <= 5 ? '#ef4444' : '#005035'),
+                                borderRadius: 4,
+                                barPercentage: 0.6,
+                                order: 2
+                            }
+                        ]
+                    };
+                },
+
+                formatCurrency(value) {
+                    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value || 0);
+                },
+
+                updateStock(productId, delta) {
+                    const product = this.products.find(p => p.id === productId);
+                    if (product) {
+                        product.inputQty = (product.inputQty || 0) + delta;
+                    }
+                },
+
+                async saveBatch(product) {
+                    if (!product.inputQty || product.inputQty === 0) return;
+                    try {
+                        const response = await fetch(`/admin/inventory/api/stock/${product.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ quantityChange: product.inputQty })
+                        });
+                        
+                        if (response.ok) {
+                            product.stock += product.inputQty;
+                            const absQty = Math.abs(product.inputQty);
+                            if (product.inputQty < 0) {
+                                product.sales = (product.sales || 0) + absQty;
+                                product.cycleSales = (product.cycleSales || 0) + absQty;
+                                product.todaySales = (product.todaySales || 0) + absQty;
+                            }
+                            product.inputQty = 0;
+                            this.refreshChart();
+                            window.frescohNotify({ title: '¡Éxito!', message: 'Inventario actualizado y sincronizado', type: 'success' });
+                        }
+                    } catch (e) {
+                        window.frescohNotify({ title: 'Error', message: e.message, type: 'error' });
+                    }
+                },
+
+                async saveStockDirect(product) {
+                    try {
+                        const response = await fetch(`/admin/inventory/api/stock-direct/${product.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ stock: product.newStockValue })
+                        });
+                        
+                        if (response.ok) {
+                            product.stock = product.newStockValue;
+                            product.isEditingStock = false;
+                            this.refreshChart();
+                            window.frescohNotify({ title: 'Stock Actualizado', message: `${product.name} sincronizado correctamente`, type: 'success' });
+                        }
+                    } catch (e) {
+                        window.frescohNotify({ title: 'Error', message: e.message, type: 'error' });
+                    }
+                },
+
+                async createProduct() {
+                    try {
+                        const response = await fetch('/admin/inventory/api/product', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.newProduct)
+                        });
+                        
+                        if (response.ok) {
+                            const res = await response.json();
+                            this.products.push({ ...res.product, inputQty: 0, todaySales: 0, cycleSales: 0 });
+                            this.openModal = false;
+                            this.refreshChart();
+                            window.frescohNotify({ title: 'Producto Creado', message: 'Catálogo actualizado', type: 'success' });
+                            setTimeout(() => location.reload(), 1000); 
+                        }
+                    } catch (e) {
+                        window.frescohNotify({ title: 'Error', message: e.message, type: 'error' });
+                    }
+                },
+
+                refreshChart() {
+                    this.chart.data = this.getChartData();
+                    this.chart.update();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
