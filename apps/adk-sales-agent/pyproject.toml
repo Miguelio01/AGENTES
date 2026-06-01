@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.136.1",
-    "google-adk>=2.0.0",
+    "google-adk[extensions]>=2.0.0",
     "httpx>=0.28.1",
-    "pydantic>=2.13.4",
+    "pydantic>=2.12.5",
     "uvicorn>=0.47.0",
 ]

@@ -21,23 +21,27 @@ export class MetricsController {
   async getDashboard() {
     const data = await this.metricRepository.getUsageSummary(30);
     const recent = await this.metricRepository.getRecentLogs(50);
-    const promptEfficiency = await this.metricRepository.getPromptEfficiency(30);
-    
+    const promptEfficiency =
+      await this.metricRepository.getPromptEfficiency(30);
+
     // Matriz de Precios por 1 Millón de Tokens (USD) - Actualizado 2026
-    const PRICING: Record<string, { in: number, out: number }> = {
-      'meta/llama-3.3-70b-instruct': { in: 0.70, out: 0.70 }, // NVIDIA NIM Base
-      'gemini-1.5-flash': { in: 0.075, out: 0.30 },
-      'gemini-1.5-pro': { in: 3.50, out: 10.50 },
-      'gpt-4o': { in: 5.00, out: 15.00 },
-      'gpt-4o-mini': { in: 0.15, out: 0.60 },
-      'llama3': { in: 0, out: 0 } // Ollama Local
+    const PRICING: Record<string, { in: number; out: number }> = {
+      'meta/llama-3.3-70b-instruct': { in: 0.7, out: 0.7 }, // NVIDIA NIM Base
+      'gemini-1.5-flash': { in: 0.075, out: 0.3 },
+      'gemini-1.5-pro': { in: 3.5, out: 10.5 },
+      'gpt-4o': { in: 5.0, out: 15.0 },
+      'gpt-4o-mini': { in: 0.15, out: 0.6 },
+      llama3: { in: 0, out: 0 }, // Ollama Local
     };
 
     const calculateCost = (model: string, pIn: number, pOut: number) => {
       const modelLower = model.toLowerCase();
-      const key = Object.keys(PRICING).find(k => modelLower.includes(k.toLowerCase())) || 'meta/llama-3.3-70b-instruct';
+      const key =
+        Object.keys(PRICING).find((k) =>
+          modelLower.includes(k.toLowerCase()),
+        ) || 'meta/llama-3.3-70b-instruct';
       const price = PRICING[key];
-      return ((pIn / 1_000_000) * price.in) + ((pOut / 1_000_000) * price.out);
+      return (pIn / 1_000_000) * price.in + (pOut / 1_000_000) * price.out;
     };
 
     // Calcular gasto actual vs proyecciones
@@ -45,27 +49,44 @@ export class MetricsController {
     let spendIfGpt4 = 0;
     let spendIfGeminiPro = 0;
 
-    data.usage.forEach(u => {
-      currentTotalSpend += calculateCost(u.model, u.totalPromptTokens, u.totalCompletionTokens);
-      spendIfGpt4 += calculateCost('gpt-4o', u.totalPromptTokens, u.totalCompletionTokens);
-      spendIfGeminiPro += calculateCost('gemini-1.5-pro', u.totalPromptTokens, u.totalCompletionTokens);
+    data.usage.forEach((u) => {
+      currentTotalSpend += calculateCost(
+        u.model,
+        u.totalPromptTokens,
+        u.totalCompletionTokens,
+      );
+      spendIfGpt4 += calculateCost(
+        'gpt-4o',
+        u.totalPromptTokens,
+        u.totalCompletionTokens,
+      );
+      spendIfGeminiPro += calculateCost(
+        'gemini-1.5-pro',
+        u.totalPromptTokens,
+        u.totalCompletionTokens,
+      );
     });
 
     const savings = spendIfGpt4 - currentTotalSpend;
 
     // Preparar datos para los gráficos
-    const labels = recent.map(r => new Date(r.timestamp).toLocaleTimeString()).reverse();
-    const tokenData = recent.map(r => r.totalTokens).reverse();
-    const latencyData = recent.map(r => r.latencyMs).reverse();
+    const labels = recent
+      .map((r) => new Date(r.timestamp).toLocaleTimeString())
+      .reverse();
+    const tokenData = recent.map((r) => r.totalTokens).reverse();
+    const latencyData = recent.map((r) => r.latencyMs).reverse();
 
     // Desglose para gráfico de pastel
-    const pieTotals = recent.reduce((acc, r) => {
-      acc.system += (r.systemTokens || 0);
-      acc.history += (r.historyTokens || 0);
-      acc.rag += (r.ragTokens || 0);
-      acc.completion += (r.completionTokens || 0);
-      return acc;
-    }, { system: 0, history: 0, rag: 0, completion: 0 });
+    const pieTotals = recent.reduce(
+      (acc, r) => {
+        acc.system += r.systemTokens || 0;
+        acc.history += r.historyTokens || 0;
+        acc.rag += r.ragTokens || 0;
+        acc.completion += r.completionTokens || 0;
+        return acc;
+      },
+      { system: 0, history: 0, rag: 0, completion: 0 },
+    );
 
     return `
       <!DOCTYPE html>
@@ -219,9 +240,10 @@ export class MetricsController {
                           </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200">
-                          ${promptEfficiency.map(p => {
-                            const cost = ((p.totalTokens / 1_000_000) * 0.70); // Estimado base Llama 3.3
-                            return `
+                          ${promptEfficiency
+                            .map((p) => {
+                              const cost = (p.totalTokens / 1_000_000) * 0.7; // Estimado base Llama 3.3
+                              return `
                               <tr class="hover:bg-frescoh-light/30 transition-colors">
                                   <td class="px-6 py-4">
                                       <div class="font-bold text-indigo-900 text-sm capitalize">${p.promptTag.replace(/_/g, ' ')}</div>
@@ -248,7 +270,8 @@ export class MetricsController {
                                   </td>
                               </tr>
                             `;
-                          }).join('')}
+                            })
+                            .join('')}
                       </tbody>
                   </table>
               </div>
@@ -269,9 +292,14 @@ export class MetricsController {
                           </tr>
                       </thead>
                       <tbody class="divide-y divide-gray-200">
-                          ${data.usage.map(u => {
-                            const cost = calculateCost(u.model, u.totalPromptTokens, u.totalCompletionTokens);
-                            return `
+                          ${data.usage
+                            .map((u) => {
+                              const cost = calculateCost(
+                                u.model,
+                                u.totalPromptTokens,
+                                u.totalCompletionTokens,
+                              );
+                              return `
                               <tr class="hover:bg-frescoh-light/50 transition-colors">
                                   <td class="px-6 py-4">
                                       <div class="font-bold text-gray-800 uppercase text-sm">${u.provider}</div>
@@ -295,7 +323,8 @@ export class MetricsController {
                                   </td>
                               </tr>
                             `;
-                          }).join('')}
+                            })
+                            .join('')}
                       </tbody>
                   </table>
               </div>
@@ -316,7 +345,9 @@ export class MetricsController {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
-                            ${recent.map(r => `
+                            ${recent
+                              .map(
+                                (r) => `
                                 <tr class="hover:bg-frescoh-lime/5 transition-all border-l-4 ${r.status === 'ERROR' ? 'border-l-red-500 bg-red-50' : 'border-l-transparent'}">
                                     <td class="px-6 py-4 font-mono text-[11px] text-gray-500">
                                         ${new Date(r.timestamp).toLocaleDateString('es-CO')} <br>
@@ -345,7 +376,9 @@ export class MetricsController {
                                         ${r.status}
                                     </td>
                                 </tr>
-                            `).join('')}
+                            `,
+                              )
+                              .join('')}
                         </tbody>
                     </table>
                   </div>

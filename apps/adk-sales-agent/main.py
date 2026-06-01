@@ -31,7 +31,7 @@ nvidia_model = LiteLlm(
     parallel_tool_calls=False
 )
 
-app_instance = FastAPI(title="FRESCOH! ADK CORE")
+app = FastAPI(title="FRESCOH! ADK CORE")
 session_service = InMemorySessionService()
 APP_NAME = "frescoh"
 GATEWAY_URL = os.getenv("GATEWAY_URL", "http://localhost:3000")
@@ -196,7 +196,7 @@ sales_agent = Agent(name="sales_agent", model=nvidia_model, instruction=INSTRUCT
 inventory_agent = Agent(name="inventory_agent", model=nvidia_model, instruction=INSTRUCTIONS_BASE + " Encargado de stock.", tools=[check_inventory_batch, get_catalog, register_waitlist])
 orchestrator_agent = Agent(name="orchestrator", model=nvidia_model, instruction="Supervisor. Clasifica en: sales_agent, inventory_agent, finance_agent, o recovery_agent (saludos/dudas generales). Responde solo el nombre.")
 
-@app_instance.post("/run")
+@app.post("/run")
 async def run_agent(request: Request):
     try:
         data = await request.json()
@@ -249,4 +249,4 @@ async def run_agent(request: Request):
         return {"reply": "¡Ay sumercé! fíjese que se me embolató la libreta.", "metadata": {"agent": "error"}}
 
 if __name__ == "__main__":
-    uvicorn.run(app_instance, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

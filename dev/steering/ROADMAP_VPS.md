@@ -3,48 +3,25 @@
 Este documento detalla los pasos necesarios para llevar el orquestador de agentes a producción en un VPS, utilizando **Ollama** para inferencia local y **Obsidian** como base de conocimiento semántica.
 
 ## 1. Preparación del Entorno (VPS)
-- [ ] **Servidor:** Ubuntu 22.04+ con al menos 8GB de RAM (para Ollama).
-- [ ] **Instalar Ollama:** 
-  ```bash
-  curl -fsSL https://ollama.com/install.sh | sh
-  ollama pull llama3
-  ```
-- [ ] **Instalar PNPM:** 
-  ```bash
-  curl -fsSL https://get.pnpm.io/install.sh | sh -
-  ```
-- [ ] **Node.js:** Versión 20 o superior.
+- [x] **Llave SSH:** Registrada (`ssh-ed25519 ... JabT`).
+- [x] **IP del Servidor:** `2.25.158.226` (Ubuntu 22.04+ con al menos 8GB de RAM para Ollama).
+- [x] **Instalar Ollama:** Completado (llama3 cargado).
+- [x] **Instalar PNPM:** Completado.
+- [x] **Node.js:** Versión 20 instalado.
 
 ## 2. Configuración de Obsidian (El Cerebro)
-- [ ] Clonar la bóveda de Obsidian en el VPS:
-  ```bash
-  git clone <url-de-tu-boveda> /home/user/cerebro-obsidian
-  ```
-- [ ] Definir la ruta en el entorno: `OBSIDIAN_VAULT_PATH=/home/user/cerebro-obsidian`.
+- [x] **Ruta de Bóveda:** Usando `/root/AGENTES/brain` (Temporal hasta migración a Git independiente).
+- [ ] Definir la ruta en el entorno: `OBSIDIAN_VAULT_PATH=/root/AGENTES/brain`.
 
 ## 3. Configuración del Orquestador (.env)
-Configurar el archivo `.env` en `apps/gateway` para usar los recursos locales del VPS:
-```env
-PORT=3000
-NODE_ENV=production
-MONGODB_URI=mongodb+srv://... (usar la de Atlas ya configurada)
-USE_OLLAMA=true
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=llama3
-OBSIDIAN_VAULT_PATH=/home/user/cerebro-obsidian
-```
+- [x] Configuración de variables de producción.
+- [x] Conexión a MongoDB Atlas validada.
+- [x] Ollama configurado como LLM Provider.
 
 ## 4. Despliegue y Persistencia de Procesos
-- [ ] **Construir el proyecto:**
-  ```bash
-  pnpm install
-  pnpm -r build
-  ```
-- [ ] **Gestionar con PM2:**
-  ```bash
-  npm install -g pm2
-  pm2 start apps/gateway/dist/main.js --name agentes-gateway
-  ```
+- [x] **Instalar dependencias:** Completado (PNPM).
+- [x] **Construir el proyecto:** Completado.
+- [x] **Gestionar con PM2:** Gateway corriendo como `agentes-gateway`.
 
 ## 5. Próximas Mejoras de Arquitectura (Siguiente Sesión)
 1. **RAG Semántico Real:** Implementar `Mongoose-Vector` o `Pinecone` para que la búsqueda en Obsidian no sea por palabras clave, sino por significado (embeddings generados por Ollama).

@@ -1,5 +1,10 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
-import { IInventoryProvider, ProductInventory, Order, Client } from '@agentes/domain';
+import {
+  IInventoryProvider,
+  ProductInventory,
+  Order,
+  Client,
+} from '@agentes/domain';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GoogleSheetsInventoryAdapter } from '@agentes/infrastructure';
@@ -45,38 +50,55 @@ export class PrismaInventoryAdapter implements IInventoryProvider {
    * Actualiza el stock de un producto y sus componentes (si es un Kit).
    * Incrementa las ventas automáticamente si el cambio es negativo (consumo).
    */
-  async updateStock(productId: string, quantityChange: number, absoluteStock?: number): Promise<void> {
+  async updateStock(
+    productId: string,
+    quantityChange: number,
+    absoluteStock?: number,
+  ): Promise<void> {
     const incrementSales = quantityChange < 0 ? Math.abs(quantityChange) : 0;
-    
+
     await this.prisma.inventoryItem.update({
       where: { id: productId },
       data: {
-        stock: absoluteStock !== undefined ? absoluteStock : { increment: quantityChange },
-        sales: { increment: incrementSales }
+        stock:
+          absoluteStock !== undefined
+            ? absoluteStock
+            : { increment: quantityChange },
+        sales: { increment: incrementSales },
       },
     });
-    
+
     // Emitir evento para sincronizar con Google Sheets en segundo plano (Espejo)
-    this.eventEmitter.emit('sync.sheets.stock_updated', { productId, quantityChange });
+    this.eventEmitter.emit('sync.sheets.stock_updated', {
+      productId,
+      quantityChange,
+    });
 
     // Lógica de Bundles/Kits
     if (quantityChange < 0 && this.KIT_COMPONENTS[productId]) {
       const components = this.KIT_COMPONENTS[productId];
-      this.logger.log(`📦 BUNDLE: Descontando cascada para ${productId} (${components.length} items)`);
-      
+      this.logger.log(
+        `📦 BUNDLE: Descontando cascada para ${productId} (${components.length} items)`,
+      );
+
       for (const componentId of components) {
         try {
-          const componentExists = await this.prisma.inventoryItem.findUnique({ where: { id: componentId } });
-          
+          const componentExists = await this.prisma.inventoryItem.findUnique({
+            where: { id: componentId },
+          });
+
           if (componentExists) {
             await this.prisma.inventoryItem.update({
               where: { id: componentId },
-              data: { 
+              data: {
                 stock: { increment: quantityChange },
-                sales: { increment: Math.abs(quantityChange) } 
-              }, 
+                sales: { increment: Math.abs(quantityChange) },
+              },
             });
-            this.eventEmitter.emit('sync.sheets.stock_updated', { productId: componentId, quantityChange });
+            this.eventEmitter.emit('sync.sheets.stock_updated', {
+              productId: componentId,
+              quantityChange,
+            });
           }
         } catch (e) {
           this.logger.error(`❌ Error en cascada de Kit: ${e.message}`);
@@ -103,20 +125,23 @@ export class PrismaInventoryAdapter implements IInventoryProvider {
     }
 
     // 4. Sincronizar con Sheets
-    this.eventEmitter.emit('sync.sheets.prepaid_order_created', { order, client });
+    this.eventEmitter.emit('sync.sheets.prepaid_order_created', {
+      order,
+      client,
+    });
   }
 
   async registerDeliveryOrder(order: Order, client: Client): Promise<void> {
     await this.upsertClient(client);
-    
+
     const activeCycleId = await this.getActiveSalesCycleId();
-    
-    const productIds = order.items.map(i => i.productId);
+
+    const productIds = order.items.map((i) => i.productId);
     const catalog = await this.prisma.inventoryItem.findMany({
       where: { id: { in: productIds } },
       select: { id: true, cost: true },
     });
-    const costMap = new Map(catalog.map(c => [c.id, c.cost]));
+    const costMap = new Map(catalog.map((c) => [c.id, c.cost]));
 
     await this.prisma.order.upsert({
       where: { id: order.id },
@@ -129,7 +154,7 @@ export class PrismaInventoryAdapter implements IInventoryProvider {
         status: 'confirmed',
         salesCycleId: activeCycleId,
         items: {
-          create: order.items.map(i => ({
+          create: order.items.map((i) => ({
             productId: i.productId,
             name: i.name,
             quantity: i.quantity,
@@ -143,26 +168,38 @@ export class PrismaInventoryAdapter implements IInventoryProvider {
       },
     });
 
-    this.eventEmitter.emit('sync.sheets.delivery_order_created', { order, client });
+    this.eventEmitter.emit('sync.sheets.delivery_order_created', {
+      order,
+      client,
+    });
   }
 
   async registerCostControlOrder(order: Order, client: Client): Promise<void> {
     // En SQLite ya está en la tabla Order, pero emitimos evento para la pestaña de costos de Excel
-    this.eventEmitter.emit('sync.sheets.cost_control_created', { order, client });
+    this.eventEmitter.emit('sync.sheets.cost_control_created', {
+      order,
+      client,
+    });
   }
 
   async registerWaitlistOrder(order: Order, client: Client): Promise<void> {
     await this.upsertClient(client);
-    this.eventEmitter.emit('sync.sheets.waitlist_order_created', { order, client });
+    this.eventEmitter.emit('sync.sheets.waitlist_order_created', {
+      order,
+      client,
+    });
   }
 
   async addToWaitlist(clientId: string, productId: string): Promise<void> {
-    this.eventEmitter.emit('sync.sheets.waitlist_added', { clientId, productId });
+    this.eventEmitter.emit('sync.sheets.waitlist_added', {
+      clientId,
+      productId,
+    });
   }
 
   async getConfig(): Promise<Record<string, string>> {
     // Delegar a Sheets para mantener la flexibilidad del usuario
-    return this.sheetsAdapter.getConfig(); 
+    return this.sheetsAdapter.getConfig();
   }
 
   async removeFromPrepaidList(orderId: string): Promise<void> {
@@ -236,14 +273,14 @@ export class PrismaInventoryAdapter implements IInventoryProvider {
 
   private async saveOrderToDb(order: Order) {
     const activeCycleId = await this.getActiveSalesCycleId();
-    
+
     // Buscar los costos actuales de los productos para congelarlos en el momento de la venta
-    const productIds = order.items.map(i => i.productId);
+    const productIds = order.items.map((i) => i.productId);
     const catalog = await this.prisma.inventoryItem.findMany({
       where: { id: { in: productIds } },
       select: { id: true, cost: true },
     });
-    const costMap = new Map(catalog.map(c => [c.id, c.cost]));
+    const costMap = new Map(catalog.map((c) => [c.id, c.cost]));
 
     await this.prisma.order.create({
       data: {
@@ -255,7 +292,7 @@ export class PrismaInventoryAdapter implements IInventoryProvider {
         status: order.status,
         salesCycleId: activeCycleId,
         items: {
-          create: order.items.map(i => ({
+          create: order.items.map((i) => ({
             productId: i.productId,
             name: i.name,
             quantity: i.quantity,

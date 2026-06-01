@@ -36,16 +36,17 @@
         <!-- Header -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div class="flex items-center gap-4">
+                <img src="data:image/png;base64,<%= logo %>" class="w-16 h-16 rounded-full shadow-lg border-2 border-frescoh-lime" alt="Frescoh! Logo">
                 <div>
                     <h1 class="text-3xl font-black text-frescoh-dark flex items-center gap-2 uppercase tracking-tight">
                         FRESCOH! <span class="text-frescoh-lime bg-frescoh-dark px-2 py-0.5 rounded">COSECHAS</span>
                     </h1>
-                    <p class="text-gray-500 font-medium">Gestión de Ciclos y Rentabilidad Neta</p>
+                    <p class="text-gray-500 font-medium text-xs">Gestión de Ciclos y Rentabilidad Neta</p>
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-sm">Inventario</a>
-                <button x-show="!hasOpenCycle" @click="openModal('create')" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-bold shadow-lg hover:opacity-90 transition text-sm">
+                <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter">Inventario</a>
+                <button x-show="!hasOpenCycle" @click="openModal('create')" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-bold shadow-lg hover:opacity-90 transition text-xs">
                     + Abrir Cosecha
                 </button>
             </div>
@@ -64,10 +65,8 @@
                             <tr>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Estado</th>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Nombre</th>
-                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Venta Prod.</th>
-                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Ingreso Domi.</th>
-                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Costo Prod.</th>
-                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Gastos Sem.</th>
+                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Venta Total</th>
+                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right bg-orange-50/50">Pago Provedores</th>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Utilidad Neta</th>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-center">Acciones</th>
                             </tr>
@@ -83,20 +82,32 @@
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="font-bold text-gray-800 text-sm" x-text="cycle.name"></div>
-                                        <button @click="openModal('edit', cycle)" class="text-[9px] text-indigo-600 hover:underline font-bold mt-1 uppercase tracking-tighter italic">Editar Datos ✏️</button>
+                                        <div class="text-[9px] text-gray-500 font-medium mt-1">Domicilio: <span class="font-bold" x-text="formatCurrency(cycle.deliveryFee)"></span></div>
+                                        <button @click="openModal('edit', cycle)" class="text-[9px] text-indigo-600 hover:underline font-bold mt-1 uppercase tracking-tighter italic">Ajustar Cosecha ✏️</button>
                                     </td>
                                     
-                                    <!-- Venta de Productos -->
-                                    <td class="px-4 py-4 text-right font-medium text-gray-700 text-sm" x-text="formatCurrency(cycle.metrics.productRevenue)"></td>
+                                    <!-- Venta Total (Productos + Domicilios) -->
+                                    <td class="px-4 py-4 text-right font-medium text-gray-700 text-sm" x-text="formatCurrency(cycle.metrics.totalRevenue)"></td>
                                     
-                                    <!-- Ingreso Domicilio (Separado) -->
-                                    <td class="px-4 py-4 text-right font-medium text-blue-600 text-sm" x-text="formatCurrency(cycle.metrics.deliveryRevenue)"></td>
-                                    
-                                    <!-- Costo de Productos -->
-                                    <td class="px-4 py-4 text-right text-red-500 text-sm" x-text="'-' + formatCurrency(cycle.metrics.productCost)"></td>
-                                    
-                                    <!-- Gastos Operativos (NUEVO) -->
-                                    <td class="px-4 py-4 text-right text-orange-600 text-sm" x-text="'-' + formatCurrency(cycle.metrics.operatingCosts)"></td>
+                                    <!-- Pago Proveedores (Editable Directamente) -->
+                                    <td class="px-4 py-4 text-right bg-orange-50/30">
+                                        <div x-show="!cycle.isEditingPayment" @click="cycle.isEditingPayment = true; cycle.newPaymentValue = cycle.manualSupplierPayment" class="group cursor-pointer">
+                                            <span class="px-3 py-1.5 rounded text-[11px] font-black block ml-auto w-max border border-orange-200 bg-white text-orange-700 group-hover:border-orange-500 transition-all shadow-sm" 
+                                                x-text="formatCurrency(cycle.manualSupplierPayment)">
+                                            </span>
+                                        </div>
+                                        <div x-show="cycle.isEditingPayment" class="flex flex-col items-end gap-1">
+                                            <div class="flex items-center gap-1 justify-end">
+                                                <span class="text-[10px] font-bold text-orange-400">$</span>
+                                                <input type="number" x-model.number="cycle.newPaymentValue" 
+                                                       class="w-24 border border-orange-300 rounded text-right text-xs font-black text-orange-700 outline-none focus:ring-1 focus:ring-orange-500 bg-white">
+                                            </div>
+                                            <div class="flex gap-1">
+                                                <button @click="savePayment(cycle)" class="bg-orange-500 text-white text-[9px] px-2 py-0.5 rounded font-black uppercase shadow-sm hover:opacity-90">OK</button>
+                                                <button @click="cycle.isEditingPayment = false" class="text-[9px] text-gray-400 hover:text-red-500 font-bold uppercase">X</button>
+                                            </div>
+                                        </div>
+                                    </td>
                                     
                                     <!-- Utilidad Neta -->
                                     <td class="px-4 py-4 text-right">
@@ -105,10 +116,15 @@
                                     </td>
                                     
                                     <td class="px-4 py-4 text-center">
+                                        <!-- Botón Cerrar (Si está abierta) -->
                                         <button x-show="cycle.status === 'OPEN'" @click="closeCycle(cycle.id)" class="text-[9px] font-bold bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded hover:bg-red-50 transition shadow-sm uppercase">
                                             Cerrar
                                         </button>
-                                        <span x-show="cycle.status === 'CLOSED'" class="text-gray-300 text-[10px]">--</span>
+
+                                        <!-- Botón Reactivar (Si está cerrada) -->
+                                        <button x-show="cycle.status === 'CLOSED'" @click="reopenCycle(cycle.id)" class="text-[9px] font-bold bg-frescoh-dark text-frescoh-lime px-3 py-1.5 rounded hover:opacity-90 transition shadow-sm uppercase">
+                                            Reactivar
+                                        </button>
                                     </td>
                                 </tr>
                             </template>
@@ -124,7 +140,7 @@
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-gray-200" @click.away="modal.show = false">
             <div class="frescoh-gradient p-6 text-white border-b border-frescoh-dark rounded-t-2xl">
                 <h2 class="text-xl font-black uppercase tracking-tight" x-text="modal.mode === 'create' ? 'Nueva Cosecha' : 'Ajustar Cosecha'"></h2>
-                <p class="text-frescoh-lime/80 text-xs font-medium uppercase mt-1">Control de costos y periodos</p>
+                <p class="text-frescoh-lime/80 text-xs font-medium uppercase mt-1">Control de periodos operativos</p>
             </div>
             <form @submit.prevent="saveCycle" class="p-6 space-y-4">
                 <div>
@@ -141,15 +157,10 @@
                         <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Cierre</label>
                         <input type="datetime-local" x-model="modal.form.endDate" class="w-full border border-gray-300 rounded p-3 focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 text-xs font-bold">
                     </div>
-                </div>
-
-                <div>
-                    <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Costos Operativos (Gastos de la Semana)</label>
-                    <div class="relative">
-                        <span class="absolute left-3 top-3 text-gray-400 font-bold">$</span>
-                        <input type="number" x-model.number="modal.form.operatingCosts" required class="w-full border border-gray-300 rounded p-3 pl-7 focus:ring-2 focus:ring-orange-500 outline-none bg-orange-50/30 text-sm font-black text-orange-700" placeholder="Gasolina, salarios, etc">
+                    <div>
+                        <label class="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Costo Domicilio ($)</label>
+                        <input type="number" x-model.number="modal.form.deliveryFee" placeholder="Ej: 10000" class="w-full border border-gray-300 rounded p-3 focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 text-xs font-bold">
                     </div>
-                    <p class="text-[9px] text-gray-400 mt-1 uppercase italic">Este valor se restará de la utilidad de la cosecha.</p>
                 </div>
 
                 <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
@@ -166,7 +177,14 @@
                 cycles: <%- JSON.stringify(cycles) %>,
                 modal: {
                     show: false, mode: 'create',
-                    form: { id: null, name: '', startDate: '', endDate: '', operatingCosts: 0 }
+                    form: { id: null, name: '', startDate: '', endDate: '', deliveryFee: 10000 }
+                },
+
+                init() {
+                    this.cycles.forEach(c => {
+                        c.isEditingPayment = false;
+                        c.newPaymentValue = c.manualSupplierPayment || 0;
+                    });
                 },
                 
                 get hasOpenCycle() { return this.cycles.some(c => c.status === 'OPEN'); },
@@ -192,14 +210,13 @@
                     this.modal.mode = mode;
                     if (mode === 'create') {
                         this.modal.form = {
-                            id: null, name: '', startDate: this.formatDateTimeLocal(new Date()), endDate: '', operatingCosts: 0
+                            id: null, name: '', startDate: this.formatDateTimeLocal(new Date()), endDate: ''
                         };
                     } else if (cycle) {
                         this.modal.form = {
                             id: cycle.id, name: cycle.name,
                             startDate: this.formatDateTimeLocal(cycle.startDate),
-                            endDate: this.formatDateTimeLocal(cycle.endDate),
-                            operatingCosts: cycle.operatingCosts || 0
+                            endDate: this.formatDateTimeLocal(cycle.endDate)
                         };
                     }
                     this.modal.show = true;
@@ -214,8 +231,45 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(this.modal.form)
                         });
-                        if (response.ok) { alert('Cosecha guardada ✅'); location.reload(); }
-                    } catch (e) { alert('Error: ' + e.message); }
+                        
+                        const result = await response.json();
+                        
+                        if (result.status === 'SUCCESS') {
+                            window.dispatchEvent(new CustomEvent('notify', { 
+                                detail: { title: 'Éxito', message: 'Cosecha guardada correctamente ✅', type: 'success' } 
+                            }));
+                            setTimeout(() => location.reload(), 1000);
+                        } else {
+                            window.dispatchEvent(new CustomEvent('notify', { 
+                                detail: { title: 'Error de Validación', message: result.message, type: 'error' } 
+                            }));
+                        }
+                    } catch (e) {
+                        window.dispatchEvent(new CustomEvent('notify', { 
+                            detail: { title: 'Error', message: 'Falla de conexión: ' + e.message, type: 'error' } 
+                        }));
+                    }
+                },
+
+                async savePayment(cycle) {
+                    try {
+                        const response = await fetch(`/admin/cycles/api/payment/${cycle.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ payment: cycle.newPaymentValue })
+                        });
+                        
+                        if (response.ok) {
+                            cycle.manualSupplierPayment = cycle.newPaymentValue;
+                            cycle.isEditingPayment = false;
+                            window.dispatchEvent(new CustomEvent('notify', { 
+                                detail: { title: 'Éxito', message: `Pago de ${cycle.name} actualizado`, type: 'success' } 
+                            }));
+                            setTimeout(() => location.reload(), 1000); // Recargar para ver nueva utilidad neta
+                        }
+                    } catch (e) {
+                        alert('Error al guardar pago: ' + e.message);
+                    }
                 },
 
                 async closeCycle(id) {
@@ -223,6 +277,19 @@
                     try {
                         const response = await fetch(`/admin/cycles/api/${id}/close`, { method: 'POST' });
                         if (response.ok) { location.reload(); }
+                    } catch (e) { alert('Error: ' + e.message); }
+                },
+
+                async reopenCycle(id) {
+                    if (!confirm('¿Deseas reactivar esta cosecha? Esto cerrará cualquier otra cosecha que esté abierta.')) return;
+                    try {
+                        const response = await fetch(`/admin/cycles/api/${id}/reopen`, { method: 'POST' });
+                        if (response.ok) {
+                            window.dispatchEvent(new CustomEvent('notify', { 
+                                detail: { title: 'Éxito', message: 'Cosecha reactivada ✅', type: 'success' } 
+                            }));
+                            setTimeout(() => location.reload(), 1000);
+                        }
                     } catch (e) { alert('Error: ' + e.message); }
                 }
             }

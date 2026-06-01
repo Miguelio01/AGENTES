@@ -1,0 +1,64 @@
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: agentes-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  adk-agent:
+    build:
+      context: .
+      dockerfile: apps/adk-sales-agent/Dockerfile
+    container_name: agentes-adk
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; exit(0) if urllib.request.urlopen('http://localhost:8000/docs').getcode() == 200 else exit(1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./apps/adk-sales-agent/.env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    container_name: agentes-gateway
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_started
+      adk-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./apps/gateway/.env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/frescoh
+      - ADK_SALES_AGENT_URL=http://adk-agent:8000
+      - DATABASE_URL=file:/app/apps/gateway/prisma/dev.db
+    volumes:
+      # Persistencia de SQLite (Base de datos local)
+      - ./apps/gateway/prisma:/app/apps/gateway/prisma
+      # Persistencia de Sesiones de WhatsApp (Evita re-escanear QR)
+      - ./apps/gateway/sessions:/app/apps/gateway/sessions
+      # Persistencia de Knowledge Base
+      - ./brain:/app/brain
+
+volumes:
+  mongodb_data:

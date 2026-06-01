@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { InventoryAgentService } from './inventory-agent.service';
 import { KnowledgeAgentService } from './knowledge-agent.service';
@@ -19,7 +19,7 @@ import { ClientsModule } from '../clients/clients.module';
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: 'Agent', schema: AgentSchema }]),
-    InventoryModule,
+    forwardRef(() => InventoryModule),
     KnowledgeModule,
     FinanceModule,
     AiModule,

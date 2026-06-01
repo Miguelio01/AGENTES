@@ -16,8 +16,8 @@ import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
     AiModule,
     SessionsModule,
     ClientsModule,
-    AgentsModule,
-    InventoryModule,
+    forwardRef(() => AgentsModule),
+    forwardRef(() => InventoryModule),
     forwardRef(() => OrdersModule),
     ConfigModule,
   ],
@@ -28,11 +28,18 @@ import { LlmEmotionAnalyzerAdapter } from '@agentes/infrastructure';
       provide: 'IEmotionAnalyzer',
       useFactory: (aiService: AiService, configService: ConfigService) => {
         const lazyProvider = {
-          generateResponse: (messages) => aiService.getResponse(messages, 'emotion_analysis'),
+          generateResponse: (messages) =>
+            aiService.getResponse(messages, 'emotion_analysis'),
         };
-        const adkUrl = configService.get<string>('ADK_SALES_AGENT_URL') || 'http://localhost:8000';
-        const useAdk = configService.get<string>('USE_ADK_EMOTION_ANALYZER') === 'true';
-        return new LlmEmotionAnalyzerAdapter(lazyProvider as any, useAdk ? adkUrl : undefined);
+        const adkUrl =
+          configService.get<string>('ADK_SALES_AGENT_URL') ||
+          'http://localhost:8000';
+        const useAdk =
+          configService.get<string>('USE_ADK_EMOTION_ANALYZER') === 'true';
+        return new LlmEmotionAnalyzerAdapter(
+          lazyProvider as any,
+          useAdk ? adkUrl : undefined,
+        );
       },
       inject: [AiService, ConfigService],
     },

@@ -33,7 +33,7 @@ export class InventoryAgentService {
     'KIT-FRU-01': 'KITF',
     'KIT-FRU-02': 'KITR',
     'ABA-ARE-02': 'AREQ',
-    'ABA-ARE-01': 'AREM'
+    'ABA-ARE-01': 'AREM',
   };
 
   constructor(
@@ -42,7 +42,7 @@ export class InventoryAgentService {
     @Inject(CLIENT_REPOSITORY_PORT)
     private readonly clientRepository: IClientRepository,
     private readonly knowledgeAgent: KnowledgeAgentService,
-  ) { }
+  ) {}
 
   /**
    * Normaliza un texto para búsqueda (Remueve puntuación, artículos y términos comunes)
@@ -50,9 +50,12 @@ export class InventoryAgentService {
   private normalizeSearch(text: string): string {
     return (text || '')
       .toLowerCase()
-      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
-      .replace(/un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco |unidades |uds |plus /gi, " ")
-      .replace(/\s+/g, " ")
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, '')
+      .replace(
+        /un |uno |una |dos |kilo|libra| de |las |los |la |el |quiero |venden |necesito |busco |unidades |uds |plus /gi,
+        ' ',
+      )
+      .replace(/\s+/g, ' ')
       .trim()
       .toUpperCase();
   }
@@ -161,11 +164,16 @@ export class InventoryAgentService {
       if (Array.isArray(request.data)) {
         items = request.data;
       } else if (request.data?.productName) {
-        items = [{
-          product: request.data.productId || request.data.productName,
-          productName: request.data.productName,
-          quantity: request.data.missingQuantity || request.data.requestedQuantity || 1
-        }];
+        items = [
+          {
+            product: request.data.productId || request.data.productName,
+            productName: request.data.productName,
+            quantity:
+              request.data.missingQuantity ||
+              request.data.requestedQuantity ||
+              1,
+          },
+        ];
       } else {
         items = [];
       }
@@ -202,9 +210,12 @@ export class InventoryAgentService {
   }
 
   private async handleCheckStock(
-    request: AgentRequest<InventoryCheckData & { unit?: string; productId?: string }>,
+    request: AgentRequest<
+      InventoryCheckData & { unit?: string; productId?: string }
+    >,
   ): Promise<AgentResponse<InventoryCheckResult>> {
-    const { productName, requestedQuantity, unit, productId } = request.data || {};
+    const { productName, requestedQuantity, unit, productId } =
+      request.data || {};
 
     if (!productName && !productId) {
       return {
@@ -223,7 +234,7 @@ export class InventoryAgentService {
 
     // --- NUEVO: Caso especial para Catálogo Completo ---
     if (productName === 'TODOS') {
-      const available = allProducts.filter(p => p.stock > 0);
+      const available = allProducts.filter((p) => p.stock > 0);
       return {
         from: 'inventory-agent',
         to: request.from,
@@ -231,70 +242,106 @@ export class InventoryAgentService {
         data: {
           available: true,
           message: 'Catálogo cargado con éxito',
-          availableProducts: available.map(p => ({
+          availableProducts: available.map((p) => ({
             name: p.name,
             price: p.price,
             presentation: p.packagingType,
-            stock: p.stock
-          }))
-        } as any
+            stock: p.stock,
+          })),
+        } as any,
       };
     }
 
     // 0. PRIORIDAD MÁXIMA: Match por ID exacto (Catálogo / SKU)
     if (productId) {
-      const idMatch = allProducts.find(p => p.id === productId || p.id === productId.toUpperCase());
+      const idMatch = allProducts.find(
+        (p) => p.id === productId || p.id === productId.toUpperCase(),
+      );
       if (idMatch) {
         this.logger.log(`🎯 Match exacto por ID encontrado: ${idMatch.name}`);
-        return this.processProductMatch(idMatch, requestedQuantity, request.from as any);
+        return this.processProductMatch(
+          idMatch,
+          requestedQuantity,
+          request.from as any,
+        );
       }
     }
 
     const cleanSearch = this.normalizeSearch(productName || '');
 
     // 0. INTENTO: Match por Alias Amigable (Prioridad absoluta para el cliente)
-    const aliasMatchId = Object.keys(this.productAliases).find(id => this.productAliases[id] === cleanSearch);
+    const aliasMatchId = Object.keys(this.productAliases).find(
+      (id) => this.productAliases[id] === cleanSearch,
+    );
     if (aliasMatchId) {
-      const product = allProducts.find(p => p.id === aliasMatchId);
+      const product = allProducts.find((p) => p.id === aliasMatchId);
       if (product) {
-        return this.processProductMatch(product, requestedQuantity, request.from as any);
+        return this.processProductMatch(
+          product,
+          requestedQuantity,
+          request.from as any,
+        );
       }
     }
 
     // 1. INTENTO: Match Exacto (ID o Nombre)
-    const exactMatch = allProducts.find(p => p.id === cleanSearch || this.normalizeSearch(p.name) === cleanSearch);
+    const exactMatch = allProducts.find(
+      (p) =>
+        p.id === cleanSearch || this.normalizeSearch(p.name) === cleanSearch,
+    );
 
     if (exactMatch) {
-      return this.processProductMatch(exactMatch, requestedQuantity, request.from as any);
+      return this.processProductMatch(
+        exactMatch,
+        requestedQuantity,
+        request.from as any,
+      );
     }
 
     // 2. INTENTO: Búsqueda Flexible para Catálogo (Búsqueda Inversa)
     // Si el texto de búsqueda contiene el nombre del producto o viceversa
-    const catalogMatch = allProducts.find(p => {
+    const catalogMatch = allProducts.find((p) => {
       const pName = this.normalizeSearch(p.name);
       return cleanSearch.includes(pName) || pName.includes(cleanSearch);
     });
 
     if (catalogMatch) {
-      this.logger.log(`📱 Match de catálogo encontrado por similitud: ${catalogMatch.name}`);
-      return this.processProductMatch(catalogMatch, requestedQuantity, request.from as any);
+      this.logger.log(
+        `📱 Match de catálogo encontrado por similitud: ${catalogMatch.name}`,
+      );
+      return this.processProductMatch(
+        catalogMatch,
+        requestedQuantity,
+        request.from as any,
+      );
     }
 
     // 3. INTENTO: Empieza por (Prefix Match)
-    const prefixMatches = allProducts.filter(p => this.normalizeSearch(p.name).startsWith(cleanSearch));
+    const prefixMatches = allProducts.filter((p) =>
+      this.normalizeSearch(p.name).startsWith(cleanSearch),
+    );
     if (prefixMatches.length === 1) {
-      return this.processProductMatch(prefixMatches[0], requestedQuantity, request.from as any);
+      return this.processProductMatch(
+        prefixMatches[0],
+        requestedQuantity,
+        request.from as any,
+      );
     }
 
     // 3. INTENTO: Contiene (Substring Match)
-    const substringMatches = allProducts.filter(p => this.normalizeSearch(p.name).includes(cleanSearch));
+    const substringMatches = allProducts.filter((p) =>
+      this.normalizeSearch(p.name).includes(cleanSearch),
+    );
 
     // Regla especial para huevos si es ambiguo
     const isEggQuery = cleanSearch.includes('HUEVO');
     if (isEggQuery) {
-      const hasSize = cleanSearch.includes('JUMBO') || cleanSearch.includes('GRANDE');
+      const hasSize =
+        cleanSearch.includes('JUMBO') || cleanSearch.includes('GRANDE');
       if (!hasSize) {
-        const eggOptions = allProducts.filter(p => this.normalizeSearch(p.name).includes('HUEVO'));
+        const eggOptions = allProducts.filter((p) =>
+          this.normalizeSearch(p.name).includes('HUEVO'),
+        );
         if (eggOptions.length > 0) {
           return {
             from: 'inventory-agent',
@@ -302,8 +349,8 @@ export class InventoryAgentService {
             status: 'REQUIRES_USER_INPUT',
             data: {
               message: `Tengo huevos AAA y AAA PLUS. ¿De cuáles prefiere llevar?`,
-              options: eggOptions.map(p => p.name),
-              ambiguousProduct: 'huevos'
+              options: eggOptions.map((p) => p.name),
+              ambiguousProduct: 'huevos',
             } as any,
           };
         }
@@ -318,13 +365,17 @@ export class InventoryAgentService {
         status: 'REQUIRES_USER_INPUT',
         data: {
           message: `Encontré varias opciones para "${productName}". ¿Cuál buscaba?`,
-          options: substringMatches.map(c => c.name),
+          options: substringMatches.map((c) => c.name),
         } as any,
       };
     }
 
     if (substringMatches.length === 1) {
-      return this.processProductMatch(substringMatches[0], requestedQuantity, request.from as any);
+      return this.processProductMatch(
+        substringMatches[0],
+        requestedQuantity,
+        request.from as any,
+      );
     }
 
     // 4. INTENTO: Fallback de términos (Legacy logic mejorada)
@@ -357,10 +408,18 @@ export class InventoryAgentService {
       };
     }
 
-    return this.processProductMatch(fuzzyCandidates[0], requestedQuantity, request.from as any);
+    return this.processProductMatch(
+      fuzzyCandidates[0],
+      requestedQuantity,
+      request.from as any,
+    );
   }
 
-  private processProductMatch(product: ProductInventory, requestedQuantity: number | undefined, from: any): AgentResponse<InventoryCheckResult> {
+  private processProductMatch(
+    product: ProductInventory,
+    requestedQuantity: number | undefined,
+    from: any,
+  ): AgentResponse<InventoryCheckResult> {
     const qty = requestedQuantity || 1;
     const unitsNeeded = qty;
     let presentation = product.packagingType || 'unidad';
@@ -414,25 +473,33 @@ export class InventoryAgentService {
   }
 
   private async handleCheckStockBatch(
-    request: AgentRequest<{ items: { productName: string; quantity: number }[] }>,
+    request: AgentRequest<{
+      items: { productName: string; quantity: number }[];
+    }>,
   ): Promise<AgentResponse> {
     const items = request.data?.items || [];
-    this.logger.log(`📦 Consultando stock por lote para ${items.length} productos (Optimizado)`);
+    this.logger.log(
+      `📦 Consultando stock por lote para ${items.length} productos (Optimizado)`,
+    );
 
     // Obtener todos los productos una sola vez
     const allProducts = await this.inventoryProvider.listProducts();
 
-    const results = items.map(item => {
+    const results = items.map((item) => {
       // Reutilizar lógica de búsqueda pero con la lista ya cargada
       const product = this.findProductInList(allProducts, item.productName);
       if (!product) {
         return {
           available: false,
           productName: item.productName,
-          message: 'Producto no encontrado'
+          message: 'Producto no encontrado',
         };
       }
-      return this.processProductMatch(product, item.quantity, request.from as any).data;
+      return this.processProductMatch(
+        product,
+        item.quantity,
+        request.from as any,
+      ).data;
     });
 
     return {
@@ -443,18 +510,26 @@ export class InventoryAgentService {
     };
   }
 
-  private findProductInList(allProducts: ProductInventory[], productName: string): ProductInventory | null {
+  private findProductInList(
+    allProducts: ProductInventory[],
+    productName: string,
+  ): ProductInventory | null {
     const cleanSearch = this.normalizeSearch(productName);
 
     // 1. Match exacto
-    const exact = allProducts.find(p => this.normalizeSearch(p.name) === cleanSearch || p.id === cleanSearch);
+    const exact = allProducts.find(
+      (p) =>
+        this.normalizeSearch(p.name) === cleanSearch || p.id === cleanSearch,
+    );
     if (exact) return exact;
 
     // 2. Similitud
-    return allProducts.find(p => {
-      const pName = this.normalizeSearch(p.name);
-      return cleanSearch.includes(pName) || pName.includes(cleanSearch);
-    }) || null;
+    return (
+      allProducts.find((p) => {
+        const pName = this.normalizeSearch(p.name);
+        return cleanSearch.includes(pName) || pName.includes(cleanSearch);
+      }) || null
+    );
   }
 
   private async handleReserveStock(

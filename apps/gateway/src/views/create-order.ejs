@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              frescoh: {
+                dark: '#005035',
+                lime: '#B5F543',
+                light: '#E6F4EA'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
+        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="p-4 md:p-8" x-data="createOrderApp()">
+    
+    <%- include('partials/ui-stack') %>
+
+    <div class="max-w-5xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div class="flex items-center gap-4">
+                <img src="data:image/png;base64,<%= logo %>" class="w-16 h-16 rounded-full shadow-lg border-2 border-frescoh-lime" alt="Frescoh! Logo">
+                <div>
+                    <h1 class="text-3xl font-black text-frescoh-dark flex items-center gap-2 uppercase tracking-tight">
+                        FRESCOH! <span class="text-frescoh-lime bg-frescoh-dark px-2 py-0.5 rounded">PEDIDO</span>
+                    </h1>
+                    <p class="text-gray-500 font-medium text-xs">Creación Manual de Órdenes</p>
+                </div>
+            </div>
+            <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter">
+                Volver a Órdenes
+            </a>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Columna Izquierda: Cliente y Productos -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- Sección Cliente -->
+                <div class="card p-6 border-l-4 border-l-frescoh-dark">
+                    <h3 class="text-sm font-black text-frescoh-dark uppercase tracking-wider mb-4 flex items-center gap-2">
+                        👤 Información del Cliente
+                    </h3>
+                    
+                    <div class="space-y-4">
+                        <div class="relative">
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Buscar Cliente Existente</label>
+                            <input type="text" 
+                                   x-model="clientSearch" 
+                                   @input="findClient()"
+                                   placeholder="Nombre o Teléfono..." 
+                                   class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50">
+                            
+                            <!-- Dropdown de resultados -->
+                            <div x-show="clientResults.length > 0" 
+                                 x-cloak
+                                 class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                                <template x-for="c in clientResults" :key="c.id">
+                                    <div @click="selectClient(c)" class="px-4 py-2 hover:bg-frescoh-light cursor-pointer border-b border-gray-100">
+                                        <p class="font-bold text-sm text-frescoh-dark" x-text="c.fullName || c.name"></p>
+                                        <p class="text-[10px] text-gray-500" x-text="c.phone"></p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre Completo</label>
+                                <input type="text" x-model="order.clientName" class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">WhatsApp / Teléfono</label>
+                                <input type="text" x-model="order.clientPhone" class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo Documento</label>
+                                <select x-model="order.clientDocType" class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none bg-white">
+                                    <option value="">Seleccionar...</option>
+                                    <option value="CC">Cédula Ciudadanía (CC)</option>
+                                    <option value="NIT">NIT / RUT</option>
+                                    <option value="CE">Cédula Extranjería (CE)</option>
+                                    <option value="PP">Pasaporte (PP)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Número Documento</label>
+                                <input type="text" x-model="order.clientDocNumber" class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Correo Electrónico</label>
+                                <input type="email" x-model="order.clientEmail" placeholder="ejemplo@correo.com" class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Dirección de Entrega</label>
+                            <input type="text" x-model="order.clientAddress" class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selección de Productos -->
+                <div class="card p-6 border-l-4 border-l-frescoh-lime">
+                    <h3 class="text-sm font-black text-frescoh-dark uppercase tracking-wider mb-4 flex items-center gap-2">
+                        🛒 Selección de Productos
+                    </h3>
+
+                    <div class="mb-6 relative">
+                        <input type="text" 
+                               x-model="productSearch" 
+                               placeholder="Buscar producto..." 
+                               class="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
+                        <template x-for="product in filteredProducts" :key="product.id">
+                            <div class="border rounded-xl p-3 flex justify-between items-center hover:border-frescoh-lime transition-colors group cursor-pointer"
+                                 @click="addItem(product)">
+                                <div>
+                                    <p class="font-bold text-frescoh-dark text-sm" x-text="product.name"></p>
+                                    <p class="text-[10px] text-gray-500 font-mono" x-text="formatCurrency(product.price)"></p>
+                                    <p class="text-[9px] font-bold" :class="product.stock > 0 ? 'text-green-600' : 'text-red-500'" x-text="`Stock: ${product.stock}`"></p>
+                                </div>
+                                <div class="bg-frescoh-light text-frescoh-dark p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                                    ➕
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Resumen y Totales -->
+            <div class="space-y-6">
+                <div class="card p-6 sticky top-8 bg-frescoh-dark text-white border-none shadow-2xl">
+                    <h3 class="text-sm font-black text-frescoh-lime uppercase tracking-wider mb-6 flex items-center gap-2">
+                        📄 Resumen del Pedido
+                    </h3>
+
+                    <div class="space-y-4 mb-8 min-h-[100px]">
+                        <template x-for="(item, index) in order.items" :key="index">
+                            <div class="flex justify-between items-start border-b border-white/10 pb-2">
+                                <div class="flex-1">
+                                    <p class="text-sm font-bold" x-text="item.name"></p>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <button @click="updateItemQuantity(index, -1)" class="text-frescoh-lime hover:text-white">➖</button>
+                                        <span class="font-mono text-xs w-6 text-center" x-text="item.quantity"></span>
+                                        <button @click="updateItemQuantity(index, 1)" class="text-frescoh-lime hover:text-white">➕</button>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xs font-mono" x-text="formatCurrency(item.price * item.quantity)"></p>
+                                    <button @click="removeItem(index)" class="text-[10px] text-red-400 hover:text-red-200 mt-1 uppercase font-bold tracking-tighter">Quitar</button>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <div x-show="order.items.length === 0" class="text-white/40 italic text-sm text-center py-4">
+                            No hay productos seleccionados
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 pt-4 border-t border-white/20">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-white/60">Subtotal</span>
+                            <span class="font-mono" x-text="formatCurrency(subtotal)"></span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-white/60">Domicilio</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-white/40 text-[10px]">$</span>
+                                <input type="number" 
+                                       x-model.number="order.deliveryFee" 
+                                       class="w-20 bg-white/10 border border-white/20 rounded px-2 py-1 text-right text-xs focus:ring-1 focus:ring-frescoh-lime outline-none">
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center pt-4 border-t border-white/40">
+                            <span class="font-black text-frescoh-lime uppercase tracking-widest">Total</span>
+                            <span class="text-2xl font-black font-mono" x-text="formatCurrency(total)"></span>
+                        </div>
+                    </div>
+
+                    <button @click="submitOrder()" 
+                            :disabled="isSubmitting || order.items.length === 0 || !order.clientName || !order.clientPhone"
+                            class="w-full mt-8 bg-frescoh-lime text-frescoh-dark font-black py-4 rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50 disabled:grayscale uppercase tracking-widest flex justify-center items-center gap-2">
+                        <span x-show="!isSubmitting">Confirmar Pedido</span>
+                        <span x-show="isSubmitting" class="flex items-center gap-2">
+                            <svg class="animate-spin h-5 w-5 text-frescoh-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Procesando...
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function createOrderApp() {
+            return {
+                products: <%- JSON.stringify(products) %>,
+                clients: <%- JSON.stringify(clients) %>,
+                clientSearch: '',
+                productSearch: '',
+                clientResults: [],
+                isSubmitting: false,
+                order: {
+                    clientName: '',
+                    clientPhone: '',
+                    clientAddress: '',
+                    clientDocType: '',
+                    clientDocNumber: '',
+                    clientEmail: '',
+                    deliveryFee: <%= deliveryFee %>,
+                    items: []
+                },
+
+                formatCurrency(val) {
+                    return new Intl.NumberFormat('es-CO', {
+                        style: 'currency',
+                        currency: 'COP',
+                        minimumFractionDigits: 0
+                    }).format(val);
+                },
+
+                showToast(message, type = 'info') {
+                    window.dispatchEvent(new CustomEvent('notify', { 
+                        detail: { 
+                            title: type === 'success' ? 'Éxito' : 'Error',
+                            message, 
+                            type 
+                        } 
+                    }));
+                },
+
+                get filteredProducts() {
+                    if (!this.productSearch) return this.products;
+                    const s = this.productSearch.toLowerCase();
+                    return this.products.filter(p => p.name.toLowerCase().includes(s) || p.id.toLowerCase().includes(s));
+                },
+
+                findClient() {
+                    if (this.clientSearch.length < 2) {
+                        this.clientResults = [];
+                        return;
+                    }
+                    const s = this.clientSearch.toLowerCase();
+                    this.clientResults = this.clients.filter(c => 
+                        (c.name && c.name.toLowerCase().includes(s)) || 
+                        (c.fullName && c.fullName.toLowerCase().includes(s)) || 
+                        (c.phone && c.phone.includes(s))
+                    ).slice(0, 5);
+                },
+
+                selectClient(c) {
+                    this.order.clientName = c.fullName || c.name;
+                    this.order.clientPhone = c.phone;
+                    this.order.clientAddress = c.address || '';
+                    this.order.clientDocType = c.documentType || '';
+                    this.order.clientDocNumber = c.documentNumber || '';
+                    this.order.clientEmail = c.email || '';
+                    this.clientResults = [];
+                    this.clientSearch = '';
+                    this.showToast('Cliente cargado', 'success');
+                },
+
+                addItem(product) {
+                    const existing = this.order.items.find(i => i.id === product.id);
+                    if (existing) {
+                        existing.quantity++;
+                    } else {
+                        this.order.items.push({
+                            id: product.id,
+                            name: product.name,
+                            price: product.price,
+                            quantity: 1
+                        });
+                    }
+                    this.showToast(`Agregado: ${product.name}`, 'success');
+                },
+
+                updateItemQuantity(index, delta) {
+                    const item = this.order.items[index];
+                    item.quantity += delta;
+                    if (item.quantity <= 0) {
+                        this.removeItem(index);
+                    }
+                },
+
+                removeItem(index) {
+                    this.order.items.splice(index, 1);
+                },
+
+                get subtotal() {
+                    return this.order.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                },
+
+                get total() {
+                    return this.subtotal + (this.order.deliveryFee || 0);
+                },
+
+                async submitOrder() {
+                    this.isSubmitting = true;
+                    try {
+                        const response = await fetch('/admin/orders/api/create', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.order)
+                        });
+
+                        const result = await response.json();
+                        if (result.status === 'SUCCESS') {
+                            this.showToast('¡Pedido creado con éxito!', 'success');
+                            setTimeout(() => {
+                                window.location.href = '/admin/orders';
+                            }, 1500);
+                        } else {
+                            throw new Error(result.message);
+                        }
+                    } catch (e) {
+                        this.showToast(`Error: ${e.message}`, 'error');
+                        this.isSubmitting = false;
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

@@ -36,6 +36,7 @@
     "class-validator": "^0.15.1",
     "ejs": "^6.0.1",
     "exceljs": "^4.4.0",
+    "express": "^5.2.1",
     "mongoose": "^9.4.1",
     "prisma": "^6.19.3",
     "reflect-metadata": "^0.2.2",

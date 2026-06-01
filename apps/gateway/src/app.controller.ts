@@ -16,7 +16,7 @@ export class AppController {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      service: 'frescoh-agentes'
+      service: 'frescoh-agentes',
     };
   }
 }

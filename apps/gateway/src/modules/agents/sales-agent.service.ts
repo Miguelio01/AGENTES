@@ -20,7 +20,7 @@ export class SalesAgentService {
   ) {}
 
   /**
-   * Este servicio ahora actúa principalmente como una "Mano" 
+   * Este servicio ahora actúa principalmente como una "Mano"
    * para operaciones deterministas de ventas (registrar en Sheets).
    */
   async handleRequest(request: AgentRequest): Promise<AgentResponse> {
@@ -54,13 +54,16 @@ export class SalesAgentService {
 
     const config = await this.inventoryProvider.getConfig();
     const rawFee = config['COSTO_DOMICILIO'] || '0';
-    const configDeliveryFee = parseInt(rawFee.replace(/[$. ]/g, '').split(',')[0]) || 0;
+    const configDeliveryFee =
+      parseInt(rawFee.replace(/[$. ]/g, '').split(',')[0]) || 0;
 
     // Priorizar el deliveryFee que viene en el request (ej. desde TelegramOrdersService)
     // Si es undefined o null, usar el de la configuración.
-    const deliveryFee = (request.data.deliveryFee !== undefined && request.data.deliveryFee !== null)
-      ? request.data.deliveryFee
-      : configDeliveryFee;
+    const deliveryFee =
+      request.data.deliveryFee !== undefined &&
+      request.data.deliveryFee !== null
+        ? request.data.deliveryFee
+        : configDeliveryFee;
 
     const items = request.data.items || [];
     const order = Order.create({

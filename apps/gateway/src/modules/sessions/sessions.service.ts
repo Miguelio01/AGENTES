@@ -25,8 +25,8 @@ export class SessionsService {
 
     // 2. Si no hay, y el ID parece un LID, intentar buscar por el teléfono si logramos extraerlo
     if (!session && clientId.includes('@')) {
-       const phone = clientId.split('@')[0];
-       session = await this.sessionRepository.findActiveByClientId(phone);
+      const phone = clientId.split('@')[0];
+      session = await this.sessionRepository.findActiveByClientId(phone);
     }
 
     if (session) {

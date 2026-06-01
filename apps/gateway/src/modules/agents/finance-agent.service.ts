@@ -1,8 +1,8 @@
 import { Injectable, Inject, Logger, OnModuleInit } from '@nestjs/common';
-import { 
-  PAYMENT_SCANNER_PORT, 
-  AgentRequest, 
-  AgentResponse
+import {
+  PAYMENT_SCANNER_PORT,
+  AgentRequest,
+  AgentResponse,
 } from '@agentes/domain';
 import type { IPaymentScanner } from '@agentes/domain';
 import { ConfigService } from '@nestjs/config';
@@ -20,23 +20,34 @@ export class FinanceAgentService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.adkUrl = this.configService.get<string>('ADK_SALES_AGENT_URL') || 'http://localhost:8000';
+    this.adkUrl =
+      this.configService.get<string>('ADK_SALES_AGENT_URL') ||
+      'http://localhost:8000';
   }
 
   async handleRequest(request: AgentRequest): Promise<AgentResponse> {
     this.logger.log(`💰 Finance Agent recibiendo acción: ${request.action}`);
 
     // --- INTEGRACIÓN ADK (PYTHON) ---
-    if (this.configService.get('USE_ADK_FINANCE_AGENT') === 'true' && request.action === 'verify_payment') {
+    if (
+      this.configService.get('USE_ADK_FINANCE_AGENT') === 'true' &&
+      request.action === 'verify_payment'
+    ) {
       try {
-        this.logger.log(`🧠 Delegando validación de pago a ADK Finance Agent (Python) en ${this.adkUrl}...`);
-        const response = await axios.post(`${this.adkUrl}/run`, {
-          user_id: request.context?.clientId || 'system',
-          session_id: `session-finance-${request.context?.clientId || 'system'}`,
-          message: `Validar pago por valor de $${request.data.amount}`,
-          client_id: request.context?.clientId || 'system',
-          force_agent: 'finance_agent'
-        }, { timeout: 25000 });
+        this.logger.log(
+          `🧠 Delegando validación de pago a ADK Finance Agent (Python) en ${this.adkUrl}...`,
+        );
+        const response = await axios.post(
+          `${this.adkUrl}/run`,
+          {
+            user_id: request.context?.clientId || 'system',
+            session_id: `session-finance-${request.context?.clientId || 'system'}`,
+            message: `Validar pago por valor de $${request.data.amount}`,
+            client_id: request.context?.clientId || 'system',
+            force_agent: 'finance_agent',
+          },
+          { timeout: 25000 },
+        );
 
         return {
           from: 'finance-agent' as any,
@@ -44,12 +55,16 @@ export class FinanceAgentService implements OnModuleInit {
           status: 'SUCCESS',
           data: {
             content: response.data.reply,
-            verified: response.data.reply.includes('Ya me entró el paguito') || response.data.reply.includes('VERIFICADO'),
-            phase: 'ADK_MANAGED'
+            verified:
+              response.data.reply.includes('Ya me entró el paguito') ||
+              response.data.reply.includes('VERIFICADO'),
+            phase: 'ADK_MANAGED',
           },
         };
       } catch (e) {
-        this.logger.error(`❌ Error llamando a ADK Finance Agent: ${e.message}. Usando fallback local.`);
+        this.logger.error(
+          `❌ Error llamando a ADK Finance Agent: ${e.message}. Usando fallback local.`,
+        );
       }
     }
 
@@ -65,14 +80,16 @@ export class FinanceAgentService implements OnModuleInit {
           from: 'finance-agent' as any,
           to: request.from,
           status: 'ERROR',
-          data: { message: `Acción desconocida: ${request.action}` }
+          data: { message: `Acción desconocida: ${request.action}` },
         };
     }
   }
 
-  private async handleGetDailyRevenue(request: AgentRequest): Promise<AgentResponse> {
+  private async handleGetDailyRevenue(
+    request: AgentRequest,
+  ): Promise<AgentResponse> {
     const confirmations = await this.paymentScanner.listRecentConfirmations(50); // Más amplio para reporte
-    
+
     const total = confirmations.reduce((sum, c) => sum + c.amount, 0);
     const byProvider = confirmations.reduce((acc, c) => {
       acc[c.provider] = (acc[c.provider] || 0) + c.amount;
@@ -87,28 +104,37 @@ export class FinanceAgentService implements OnModuleInit {
         total,
         count: confirmations.length,
         breakdown: byProvider,
-        lastPayments: confirmations.slice(0, 5) // Últimos 5 para snippet
-      }
+        lastPayments: confirmations.slice(0, 5), // Últimos 5 para snippet
+      },
     };
   }
 
-  private async handleVerifyPayment(request: AgentRequest): Promise<AgentResponse> {
+  private async handleVerifyPayment(
+    request: AgentRequest,
+  ): Promise<AgentResponse> {
     const { amount, dateLimit } = request.data;
-    
+
     if (!amount) {
       return {
         from: 'finance-agent' as any,
         to: request.from,
         status: 'ERROR',
-        data: { message: 'Monto no proporcionado para validación' }
+        data: { message: 'Monto no proporcionado para validación' },
       };
     }
 
-    const limit = dateLimit ? new Date(dateLimit) : new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h por defecto
-    
-    this.logger.log(`🔍 Buscando pago de $${amount} desde ${limit.toISOString()}`);
-    
-    const confirmation = await this.paymentScanner.findConfirmation(amount, limit);
+    const limit = dateLimit
+      ? new Date(dateLimit)
+      : new Date(Date.now() - 24 * 60 * 60 * 1000); // 24h por defecto
+
+    this.logger.log(
+      `🔍 Buscando pago de $${amount} desde ${limit.toISOString()}`,
+    );
+
+    const confirmation = await this.paymentScanner.findConfirmation(
+      amount,
+      limit,
+    );
 
     if (confirmation) {
       this.logger.log(`✅ Pago encontrado! Ref: ${confirmation.reference}`);
@@ -118,8 +144,8 @@ export class FinanceAgentService implements OnModuleInit {
         status: 'SUCCESS',
         data: {
           verified: true,
-          confirmation
-        }
+          confirmation,
+        },
       };
     }
 
@@ -129,18 +155,21 @@ export class FinanceAgentService implements OnModuleInit {
       status: 'PENDING',
       data: {
         verified: false,
-        message: 'No se encontró el pago en Gmail todavía. Reintentando en unos minutos.'
-      }
+        message:
+          'No se encontró el pago en Gmail todavía. Reintentando en unos minutos.',
+      },
     };
   }
 
-  private async handleListRecent(request: AgentRequest): Promise<AgentResponse> {
+  private async handleListRecent(
+    request: AgentRequest,
+  ): Promise<AgentResponse> {
     const confirmations = await this.paymentScanner.listRecentConfirmations();
     return {
       from: 'finance-agent' as any,
       to: request.from,
       status: 'SUCCESS',
-      data: { confirmations }
+      data: { confirmations },
     };
   }
 }

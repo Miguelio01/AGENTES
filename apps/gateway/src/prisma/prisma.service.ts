@@ -3,10 +3,14 @@ import { PrismaClient } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor(configService: ConfigService) {
     super({
-      datasourceUrl: configService.get<string>('DATABASE_URL') || "file:./dev.db",
+      datasourceUrl:
+        configService.get<string>('DATABASE_URL') || 'file:./dev.db',
     });
   }
 

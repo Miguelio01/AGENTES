@@ -37,12 +37,13 @@
         <!-- Header -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div class="flex items-center gap-4">
+                <img src="data:image/png;base64,<%= logo %>" class="w-16 h-16 rounded-full shadow-lg border-2 border-frescoh-lime" alt="Frescoh! Logo">
                 <div>
                     <h1 class="text-3xl font-black text-frescoh-dark flex items-center gap-2 uppercase tracking-tight">
                         FRESCOH! <span class="text-frescoh-lime bg-frescoh-dark px-2 py-0.5 rounded">INVENTARIO</span>
                     </h1>
                     <div class="flex items-center gap-2 mt-1">
-                        <p class="text-gray-500 font-medium text-xs">Catálogo Inteligente</p>
+                        <p class="text-gray-500 font-medium text-xs">Catálogo Inteligente de Cosecha</p>
                         <% if (activeCycle) { %>
                             <span class="text-[9px] bg-frescoh-lime/20 text-frescoh-dark border border-frescoh-lime px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
                                 🚜 Cosecha: <%= activeCycle.name %>
@@ -52,8 +53,8 @@
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <a href="/admin/cycles" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Ver Cosechas</a>
-                <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Ver Órdenes</a>
+                <a href="/admin/cycles" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Cosechas</a>
+                <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Órdenes</a>
                 <button @click="openModal = true" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-bold shadow-lg hover:opacity-90 transition text-xs">
                     + Nuevo Producto
                 </button>
@@ -63,105 +64,122 @@
         <main>
             <!-- Dashboard Stats & Chart -->
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-                <div class="lg:col-span-3 card p-6 relative">
+                <div class="lg:col-span-3 card p-6 relative overflow-hidden">
                     <div class="flex justify-between items-center mb-4 border-b pb-4">
-                        <h2 class="text-lg font-bold text-frescoh-dark uppercase tracking-tight italic">Tendencia de Cosecha (Stock vs Ventas)</h2>
+                        <h2 class="text-lg font-bold text-frescoh-dark uppercase tracking-tight italic">Rendimiento de Inventario vs Ventas</h2>
                         <div class="flex gap-4 text-[9px] font-black uppercase tracking-widest">
                             <div class="flex items-center gap-1.5 text-frescoh-dark">
                                 <span class="w-3 h-3 bg-frescoh-dark rounded-sm"></span> Stock
                             </div>
                             <div class="flex items-center gap-1.5 text-blue-600">
-                                <span class="w-3 h-3 bg-blue-600 rounded-full"></span> Ventas Ciclo
+                                <span class="w-3 h-3 bg-blue-600 rounded-full"></span> Ventas
                             </div>
                         </div>
                     </div>
                     <div class="h-64">
                         <canvas id="stockChart"></canvas>
                     </div>
+                    <!-- Decorative BG -->
+                    <div class="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                        <span class="text-6xl font-black italic tracking-tighter">DATA</span>
+                    </div>
                 </div>
                 
                 <div class="flex flex-col gap-4">
                     <div class="card p-4 border-l-4 border-l-frescoh-dark flex flex-col justify-center h-full">
-                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Productos Activos</p>
+                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Ítems Activos</p>
                         <p class="text-3xl font-bold text-frescoh-dark text-center mt-1" x-text="products.length"></p>
                     </div>
-                    <div class="card p-4 border-l-4 border-l-blue-600 flex flex-col justify-center h-full bg-blue-50/20">
-                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Vendido Hoy (Día)</p>
-                        <p class="text-3xl font-bold text-blue-600 text-center mt-1" x-text="todaySalesTotal"></p>
-                    </div>
                     <div class="card p-4 border-l-4 border-l-frescoh-lime flex flex-col justify-center h-full bg-frescoh-light/10">
-                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Vendido en Ciclo (Global)</p>
+                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Vendido en Ciclo</p>
                         <p class="text-3xl font-bold text-frescoh-dark text-center mt-1" x-text="cycleSalesTotal"></p>
+                    </div>
+                    <div class="card p-4 border-l-4 border-l-blue-600 flex flex-col justify-center h-full bg-blue-50/20">
+                        <p class="text-gray-500 text-[10px] uppercase tracking-wider font-black text-center">Stock Total</p>
+                        <p class="text-3xl font-bold text-blue-600 text-center mt-1" x-text="totalStockValue"></p>
                     </div>
                 </div>
             </div>
 
-            <!-- Ingesta de Cantidades (Tabla) -->
-            <div class="card overflow-hidden mb-12 border-l-4 border-l-frescoh-lime shadow-lg">
-                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <!-- Gestión de Inventario (Tabla Rediseñada) -->
+            <div class="card overflow-hidden mb-12 border-t-4 border-t-frescoh-dark shadow-xl">
+                <div class="bg-gray-50 px-6 py-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">📦 Gestión de Stock y Rendimiento</h3>
+                        <h3 class="font-bold text-frescoh-dark uppercase tracking-tight flex items-center gap-2">
+                            📦 Panel de Operación 
+                            <span class="text-[10px] bg-frescoh-dark text-white px-2 py-0.5 rounded font-black tracking-widest">REAL-TIME</span>
+                        </h3>
+                        <p class="text-gray-400 text-[10px] font-bold uppercase mt-1">Gestión de stock y disponibilidad en tiempo real</p>
                     </div>
-                    <input type="text" x-model="search" placeholder="Buscar producto..." class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full md:w-64 bg-white">
+                    <div class="relative w-full md:w-80">
+                        <input type="text" x-model="search" placeholder="Filtrar catálogo..." class="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full bg-white shadow-inner">
+                        <span class="absolute right-3 top-2.5 text-gray-300 italic text-xs">🔍</span>
+                    </div>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[900px]">
+                    <table class="w-full text-left border-collapse min-w-[800px]">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Producto</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase hidden sm:table-cell">Precio</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center bg-blue-50/50">Vendido Hoy</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center bg-frescoh-light/20">Vendido Ciclo</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Stock Actual</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Ingesta</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Producto / Identificador</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Precio</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center bg-frescoh-light/30">Vendido Ciclo</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Disponibilidad</th>
+                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center w-[250px]">Ajuste de Stock</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 font-medium">
                             <template x-for="product in filteredProducts" :key="product.id">
-                                <tr class="hover:bg-frescoh-light/30 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <div class="font-bold text-gray-800 capitalize text-sm" x-text="product.name"></div>
-                                        <div class="text-[9px] text-gray-400 font-mono" x-text="product.id"></div>
+                                <tr class="hover:bg-frescoh-light/20 transition-all">
+                                    <td class="px-6 py-5">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-frescoh-dark/5 flex items-center justify-center text-lg shadow-inner">🥬</div>
+                                            <div>
+                                                <div class="font-black text-frescoh-dark capitalize text-sm" x-text="product.name"></div>
+                                                <div class="text-[9px] text-gray-400 font-mono tracking-tighter" x-text="product.id"></div>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 text-xs font-bold text-frescoh-dark hidden sm:table-cell" x-text="formatCurrency(product.price)"></td>
+                                    <td class="px-6 py-5 text-center">
+                                        <span class="text-xs font-black text-frescoh-dark bg-frescoh-light px-2.5 py-1 rounded-lg" x-text="formatCurrency(product.price)"></span>
+                                    </td>
                                     
-                                    <!-- Vendido Hoy (Día - Columna D de Excel) -->
-                                    <td class="px-6 py-4 text-center bg-blue-50/30">
-                                        <span class="px-3 py-1 rounded-full text-[10px] font-black bg-blue-600 text-white shadow-sm" 
-                                            x-text="product.todaySales || 0">
-                                        </span>
-                                    </td>
-
-                                    <!-- Vendido Ciclo (Calculado SQLite) -->
-                                    <td class="px-6 py-4 text-center bg-frescoh-light/10">
+                                    <!-- Vendido Ciclo -->
+                                    <td class="px-6 py-5 text-center bg-frescoh-light/10">
                                         <div class="flex flex-col items-center">
-                                            <span class="px-3 py-1 rounded-full text-[10px] font-black bg-frescoh-dark text-frescoh-lime shadow-sm" 
+                                            <span class="px-3 py-1 rounded-full text-[11px] font-black bg-white border border-frescoh-dark/10 text-frescoh-dark shadow-sm" 
                                                 x-text="product.cycleSales || 0">
                                             </span>
-                                            <span class="text-[8px] text-gray-400 font-bold mt-1 uppercase italic" x-text="'Empaque: ' + (product.packagingType || 'N/A')"></span>
+                                            <span class="text-[8px] text-gray-400 font-black mt-1 uppercase italic tracking-tighter" x-text="product.packagingType || 'Unidad'"></span>
                                         </div>
                                     </td>
                                     
-                                    <!-- Stock Actual (Editable Directamente) -->
-                                    <td class="px-6 py-4 text-center">
+                                    <!-- Stock Actual -->
+                                    <td class="px-6 py-5 text-center">
                                         <div x-show="!product.isEditingStock" @click="product.isEditingStock = true; product.newStockValue = product.stock" class="group cursor-pointer">
-                                            <span :class="product.stock <= 0 ? 'bg-red-50 text-red-600 border-red-200' : (product.stock <= 5 ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-gray-100 text-frescoh-dark border-gray-200')" 
-                                                class="px-3 py-1.5 rounded text-[11px] font-black block mx-auto w-max border group-hover:border-frescoh-dark transition-all shadow-sm" 
-                                                x-text="product.stock">
-                                            </span>
+                                            <div class="flex flex-col items-center gap-1">
+                                                <span :class="product.stock <= 0 ? 'bg-red-50 text-red-600 border-red-200' : (product.stock <= 5 ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-green-50 text-green-700 border-green-200')" 
+                                                    class="px-4 py-1.5 rounded-xl text-sm font-black block mx-auto w-max border group-hover:scale-105 transition-all shadow-sm" 
+                                                    x-text="product.stock">
+                                                </span>
+                                                <div class="w-16 h-1 bg-gray-100 rounded-full overflow-hidden mt-1">
+                                                    <div class="h-full" :class="product.stock <= 5 ? 'bg-red-500' : 'bg-green-500'" :style="'width: ' + Math.min(100, (product.stock/20)*100) + '%'"></div>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div x-show="product.isEditingStock" class="flex items-center justify-center gap-1" @click.away="product.isEditingStock = false">
-                                            <input type="number" x-model.number="product.newStockValue" class="w-14 h-8 border border-gray-300 rounded text-center text-xs focus:ring-1 focus:ring-frescoh-dark outline-none bg-white font-black">
-                                            <button @click="saveStockDirect(product)" class="text-[9px] uppercase font-black bg-frescoh-dark text-frescoh-lime px-2 py-1 rounded hover:opacity-80 shadow-md h-8">Ok</button>
+                                            <input type="number" x-model.number="product.newStockValue" class="w-16 h-9 border-2 border-frescoh-dark rounded-lg text-center text-sm focus:ring-0 outline-none bg-white font-black">
+                                            <button @click="saveStockDirect(product)" class="text-[10px] uppercase font-black bg-frescoh-dark text-frescoh-lime px-3 py-1.5 rounded-lg hover:opacity-80 shadow-md h-9">Ok</button>
                                         </div>
                                     </td>
 
-                                    <td class="px-6 py-4 text-center">
-                                        <div class="flex items-center justify-center gap-1 md:gap-2">
-                                            <button @click="updateStock(product.id, -1)" class="w-8 h-8 rounded bg-gray-100 text-gray-600 hover:bg-red-500 hover:text-white transition shadow-sm text-lg font-bold flex items-center justify-center">-</button>
-                                            <input type="number" x-model.number="product.inputQty" class="w-12 h-8 border border-gray-300 rounded text-center text-xs focus:ring-1 focus:ring-frescoh-dark outline-none bg-white font-bold" placeholder="0">
-                                            <button @click="updateStock(product.id, 1)" class="w-8 h-8 rounded bg-gray-100 text-gray-600 hover:bg-frescoh-dark hover:text-white transition shadow-sm text-lg font-bold flex items-center justify-center">+</button>
-                                            <button @click="saveBatch(product)" class="ml-1 md:ml-2 text-[9px] uppercase font-black bg-frescoh-lime text-frescoh-dark px-3 py-1.5 rounded hover:opacity-80 shadow-md">Aplicar</button>
+                                    <td class="px-6 py-5">
+                                        <div class="flex items-center justify-center gap-2">
+                                            <div class="flex items-center bg-gray-100 rounded-xl p-1 shadow-inner border border-gray-200">
+                                                <button @click="updateStock(product.id, -1)" class="w-8 h-8 rounded-lg text-gray-500 hover:bg-white hover:text-red-500 hover:shadow-sm transition font-black flex items-center justify-center text-lg">-</button>
+                                                <input type="number" x-model.number="product.inputQty" class="w-10 bg-transparent text-center text-sm focus:outline-none font-black text-frescoh-dark" placeholder="0">
+                                                <button @click="updateStock(product.id, 1)" class="w-8 h-8 rounded-lg text-gray-500 hover:bg-white hover:text-frescoh-dark hover:shadow-sm transition font-black flex items-center justify-center text-lg">+</button>
+                                            </div>
+                                            <button @click="saveBatch(product)" class="text-[10px] uppercase font-black bg-frescoh-lime text-frescoh-dark px-4 py-2.5 rounded-xl hover:scale-105 transition shadow-lg border border-frescoh-dark/10">Actualizar</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -169,12 +187,11 @@
                         </tbody>
                         <tfoot class="bg-frescoh-dark text-white font-black uppercase tracking-widest text-[10px]">
                             <tr>
-                                <th class="px-6 py-5">Totales del Sistema</th>
-                                <th class="px-6 py-5 hidden sm:table-cell">--</th>
-                                <th class="px-6 py-5 text-center bg-blue-500/20 text-blue-200" x-text="todaySalesTotal"></th>
-                                <th class="px-6 py-5 text-center bg-frescoh-lime/10" x-text="cycleSalesTotal"></th>
-                                <th class="px-6 py-5 text-center text-frescoh-lime text-lg" x-text="totalStockValue"></th>
-                                <th class="px-6 py-5 text-center">--</th>
+                                <th class="px-6 py-6 border-r border-white/5 text-xs">Métricas Totales</th>
+                                <th class="px-6 py-6 text-center border-r border-white/5">--</th>
+                                <th class="px-6 py-6 text-center bg-white/5 border-r border-white/5 text-frescoh-lime text-sm" x-text="cycleSalesTotal"></th>
+                                <th class="px-6 py-6 text-center text-white text-sm" x-text="totalStockValue"></th>
+                                <th class="px-6 py-6 text-center">--</th>
                             </tr>
                         </tfoot>
                     </table>
@@ -240,8 +257,28 @@
                     this.products.forEach(p => {
                         p.inputQty = 0;
                         p.isEditingStock = false;
+                        p.isEditingCost = false;
                         p.newStockValue = p.stock || 0;
+                        p.newCostValue = p.cost || 0;
                     });
+                },
+
+                async saveCost(product) {
+                    try {
+                        const response = await fetch(`/admin/inventory/api/cost/${product.id}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ cost: product.newCostValue })
+                        });
+                        
+                        if (response.ok) {
+                            product.cost = product.newCostValue;
+                            product.isEditingCost = false;
+                            window.frescohNotify({ title: 'Costo Actualizado', message: `Nuevo costo para ${product.name} guardado`, type: 'success' });
+                        }
+                    } catch (e) {
+                        window.frescohNotify({ title: 'Error', message: e.message, type: 'error' });
+                    }
                 },
 
                 get filteredProducts() {

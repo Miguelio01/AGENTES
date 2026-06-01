@@ -26,7 +26,7 @@ export class EscalationAgentService {
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
   ) {}
 
   private getEscalationPath(): EscalationLevel[] {
@@ -40,7 +40,9 @@ export class EscalationAgentService {
       {
         id: 'karlos',
         name: 'Karlos',
-        telegramId: this.configService.get<string>('TELEGRAM_PARTNER_KARLOS_ID'),
+        telegramId: this.configService.get<string>(
+          'TELEGRAM_PARTNER_KARLOS_ID',
+        ),
         timeoutMs: 3 * 60 * 1000,
       },
       {
@@ -52,10 +54,12 @@ export class EscalationAgentService {
       {
         id: 'manuela',
         name: 'Manuela',
-        telegramId: this.configService.get<string>('TELEGRAM_PARTNER_MANUELA_ID'),
+        telegramId: this.configService.get<string>(
+          'TELEGRAM_PARTNER_MANUELA_ID',
+        ),
         timeoutMs: 3 * 60 * 1000,
       },
-    ].filter(level => !!level.telegramId); // Solo incluir socios con ID configurado
+    ].filter((level) => !!level.telegramId); // Solo incluir socios con ID configurado
   }
 
   @OnEvent('escalation.resolve')
@@ -153,7 +157,10 @@ export class EscalationAgentService {
     });
   }
 
-  private async resolveEscalationInternal(clientId: string, resolvedBy: string): Promise<AgentResponse> {
+  private async resolveEscalationInternal(
+    clientId: string,
+    resolvedBy: string,
+  ): Promise<AgentResponse> {
     const path = this.getEscalationPath();
 
     // Si no viene clientId, intentamos buscar si solo hay uno activo

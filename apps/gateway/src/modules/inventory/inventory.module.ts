@@ -10,10 +10,21 @@ import * as path from 'path';
 import { InventoryAdminController } from './inventory-admin.controller';
 import { OrdersAdminController } from './orders-admin.controller';
 import { SalesCyclesAdminController } from './sales-cycles.controller';
+import { ClientsModule } from '../clients/clients.module';
+import { OrdersModule } from '../orders/orders.module';
+import { forwardRef } from '@nestjs/common';
 
 @Module({
-  imports: [ConfigModule],
-  controllers: [InventoryAdminController, OrdersAdminController, SalesCyclesAdminController],
+  imports: [
+    ConfigModule,
+    forwardRef(() => ClientsModule),
+    forwardRef(() => OrdersModule),
+  ],
+  controllers: [
+    InventoryAdminController,
+    OrdersAdminController,
+    SalesCyclesAdminController,
+  ],
   providers: [
     SheetsSyncListener,
     {

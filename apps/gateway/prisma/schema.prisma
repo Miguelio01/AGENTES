@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -22,28 +19,27 @@ model Client {
   address            String?
   city               String?
   registrationSource String?
-  metadata           String? // JSON string
+  metadata           String?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   orders             Order[]
 }
 
 model SalesCycle {
-  id             String    @id @default(uuid())
-  name           String    // Ej: "Cosecha Sem 22"
-  startDate      DateTime  @default(now())
-  endDate        DateTime?
-  status         String    @default("OPEN") // OPEN, CLOSED
-  operatingCosts Float     @default(0)      // Gastos extra de la semana (gasolina, personal, etc)
-  orders         Order[]
+  id                    String    @id @default(uuid())
+  name                  String
+  startDate             DateTime  @default(now())
+  endDate               DateTime?
+  status                String    @default("OPEN")
+  manualSupplierPayment Float     @default(0)
+  deliveryFee           Float     @default(10000)
+  orders                Order[]
 }
 
 model Order {
   id                    String      @id
   clientId              String
-  client                Client      @relation(fields: [clientId], references: [id])
   salesCycleId          String?
-  salesCycle            SalesCycle? @relation(fields: [salesCycleId], references: [id])
   agentId               String
   deliveryFee           Float       @default(0)
   total                 Float
@@ -51,18 +47,20 @@ model Order {
   paymentConfirmationId String?
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
+  salesCycle            SalesCycle? @relation(fields: [salesCycleId], references: [id])
+  client                Client      @relation(fields: [clientId], references: [id])
   items                 OrderItem[]
 }
 
 model OrderItem {
   id        String @id @default(uuid())
   orderId   String
-  order     Order  @relation(fields: [orderId], references: [id])
   productId String
   name      String
   quantity  Float
   price     Float
   unitCost  Float  @default(0)
+  order     Order  @relation(fields: [orderId], references: [id])
 }
 
 model InventoryItem {

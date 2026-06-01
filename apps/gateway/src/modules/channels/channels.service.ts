@@ -47,29 +47,35 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     const whatsappEnabled = !!this.configService.get('WHATSAPP_API_TOKEN');
     const telegramEnabled = !!this.configService.get('TELEGRAM_BOT_TOKEN');
-    const telegramOrdersToken = this.configService.get<string>('TELEGRAM_ORDERS_BOT_TOKEN');
+    const telegramOrdersToken = this.configService.get<string>(
+      'TELEGRAM_ORDERS_BOT_TOKEN',
+    );
 
     if (whatsappEnabled) {
       const mongoUri = this.configService.get<string>('MONGODB_URI');
-      
+
       if (mongoUri) {
-        this.logger.log('📦 Inicializando persistencia de WhatsApp en MongoDB...');
+        this.logger.log(
+          '📦 Inicializando persistencia de WhatsApp en MongoDB...',
+        );
         this.mongoClient = new MongoClient(mongoUri);
         await this.mongoClient.connect();
-        
+
         this.whatsapp = new WhatsAppAdapter(
           { mongoClient: this.mongoClient },
           this.handleIncomingMessage.bind(this),
         );
       } else {
-        this.logger.warn('⚠️ No MONGODB_URI found. Falling back to local file session.');
+        this.logger.warn(
+          '⚠️ No MONGODB_URI found. Falling back to local file session.',
+        );
         const sessionPath = path.join(process.cwd(), 'sessions/whatsapp');
         this.whatsapp = new WhatsAppAdapter(
           { path: sessionPath },
           this.handleIncomingMessage.bind(this),
         );
       }
-      
+
       await this.whatsapp.start();
     }
 
@@ -92,10 +98,10 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
             content: originalMessage.content,
             role: originalMessage.role,
             channel: 'telegram-orders',
-            metadata: originalMessage.metadata
+            metadata: originalMessage.metadata,
           });
           await this.handleIncomingMessage(ordersMessage, senderId);
-        }
+        },
       );
       await this.telegramOrders.start();
     }
@@ -122,13 +128,13 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
     const adminId = this.configService.get<string>('TELEGRAM_ADMIN_ID');
     if (message.channel === 'telegram' && senderId === adminId) {
       const contentLow = message.content.toLowerCase();
-      
+
       if (contentLow.startsWith('/aprobado')) {
         const parts = message.content.split(' ');
         const orderId = parts[1];
         if (orderId) {
           this.logger.log(`✅ Admin approved order: ${orderId}`);
-          const targetClientId = parts[2]; 
+          const targetClientId = parts[2];
           this.eventEmitter.emit(
             'order.approved',
             new AdminPaymentApprovedEvent(orderId, senderId, targetClientId),
@@ -157,7 +163,10 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
         const orderId = parts[1];
         if (orderId) {
           this.logger.log(`🚛 Admin marked order as shipped: ${orderId}`);
-          this.eventEmitter.emit('order.shipped', { orderId, adminId: senderId });
+          this.eventEmitter.emit('order.shipped', {
+            orderId,
+            adminId: senderId,
+          });
           const confirmation = Message.create({
             content: `¡Entendido jefe! Marcando pedido ${orderId} como enviado. Notificando al cliente...`,
             role: 'assistant',
@@ -181,7 +190,10 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
         const orderId = parts[1];
         if (orderId) {
           this.logger.log(`❌ Admin rejected order: ${orderId}`);
-          this.eventEmitter.emit('order.rejected', { orderId, adminId: senderId });
+          this.eventEmitter.emit('order.rejected', {
+            orderId,
+            adminId: senderId,
+          });
           const confirmation = Message.create({
             content: `¡Entendido jefe! Pedido ${orderId} rechazado. El stock será devuelto al inventario.`,
             role: 'assistant',
@@ -206,20 +218,28 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
           if (this.whatsapp) {
             const products = await this.whatsapp.exportCatalog();
             const count = Array.isArray(products) ? products.length : 'varios';
-            await this.sendMessage(Message.create({
-              content: `✅ ¡Listo jefe! Se han exportado ${count} productos del catálogo de WhatsApp Business a un archivo JSON.`,
-              role: 'assistant',
-              channel: 'telegram'
-            }), senderId, 'telegram');
+            await this.sendMessage(
+              Message.create({
+                content: `✅ ¡Listo jefe! Se han exportado ${count} productos del catálogo de WhatsApp Business a un archivo JSON.`,
+                role: 'assistant',
+                channel: 'telegram',
+              }),
+              senderId,
+              'telegram',
+            );
           }
         } catch (error: any) {
           this.logger.error(`❌ Error exportando catálogo: ${error.message}`);
           const cleanError = error.message.replace(/[_*`[\]]/g, '\\$&');
-          await this.sendMessage(Message.create({
-            content: `❌ Error en el envío: ${cleanError}`,
-            role: 'assistant',
-            channel: 'telegram'
-          }), senderId, 'telegram');
+          await this.sendMessage(
+            Message.create({
+              content: `❌ Error en el envío: ${cleanError}`,
+              role: 'assistant',
+              channel: 'telegram',
+            }),
+            senderId,
+            'telegram',
+          );
         }
         return;
       }
@@ -245,7 +265,8 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
       if (contentLow === '/desconectar') {
         this.logger.log('🚪 Admin solicitó cierre de sesión de WhatsApp...');
         const initMsg = Message.create({
-          content: '🚪 Cerrando sesión de WhatsApp y eliminando credenciales...',
+          content:
+            '🚪 Cerrando sesión de WhatsApp y eliminando credenciales...',
           role: 'assistant',
           channel: 'telegram',
         });
@@ -255,7 +276,8 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
           if (this.whatsapp) {
             await this.whatsapp.logout();
             const successMsg = Message.create({
-              content: '✅ Sesión cerrada. Use `/reconectar` para generar un nuevo código QR.',
+              content:
+                '✅ Sesión cerrada. Use `/reconectar` para generar un nuevo código QR.',
               role: 'assistant',
               channel: 'telegram',
             });
@@ -263,11 +285,15 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
           }
         } catch (error) {
           this.logger.error(`❌ Error en logout: ${error.message}`);
-          await this.sendMessage(Message.create({
-            content: `❌ Error: ${error.message}`,
-            role: 'assistant',
-            channel: 'telegram'
-          }), senderId, 'telegram');
+          await this.sendMessage(
+            Message.create({
+              content: `❌ Error: ${error.message}`,
+              role: 'assistant',
+              channel: 'telegram',
+            }),
+            senderId,
+            'telegram',
+          );
         }
         return;
       }
@@ -275,7 +301,8 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
       if (contentLow === '/reconectar') {
         this.logger.log('🔄 Admin solicitó reconexión de WhatsApp...');
         const initMsg = Message.create({
-          content: '🔄 Reintentando conexión con WhatsApp... Espere un momento.',
+          content:
+            '🔄 Reintentando conexión con WhatsApp... Espere un momento.',
           role: 'assistant',
           channel: 'telegram',
         });
@@ -287,9 +314,10 @@ export class ChannelsService implements OnModuleInit, OnModuleDestroy {
             // Pequeña pausa para asegurar liberación de recursos
             await new Promise((resolve) => setTimeout(resolve, 2000));
             await this.whatsapp.start();
-            
+
             const successMsg = Message.create({
-              content: '✅ ¡WhatsApp ha sido reiniciado! Verifique si el servicio se ha restaurado.',
+              content:
+                '✅ ¡WhatsApp ha sido reiniciado! Verifique si el servicio se ha restaurado.',
               role: 'assistant',
               channel: 'telegram',
             });

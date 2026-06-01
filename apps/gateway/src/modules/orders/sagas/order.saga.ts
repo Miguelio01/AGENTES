@@ -29,7 +29,7 @@ export class OrderSaga {
     private readonly eventEmitter: EventEmitter2,
     @Inject(INVENTORY_PROVIDER_PORT)
     private readonly inventoryProvider: IInventoryProvider,
-  ) { }
+  ) {}
 
   @OnEvent('payment.proof.submitted')
   async handlePaymentProof(event: PaymentProofSubmittedEvent) {
@@ -42,7 +42,9 @@ export class OrderSaga {
     const total = event.metadata?.total || 0;
     const channel = event.metadata?.channel || 'whatsapp';
 
-    this.logger.log(`📢 Notificando al Admin (${adminId}) sobre pago de ${clientName}. Canal origen: ${channel}. Media: ${!!event.mediaBuffer}`);
+    this.logger.log(
+      `📢 Notificando al Admin (${adminId}) sobre pago de ${clientName}. Canal origen: ${channel}. Media: ${!!event.mediaBuffer}`,
+    );
 
     // 1. Notificar al Admin (Siempre se hace por seguridad y visibilidad)
     if (adminId) {
@@ -53,37 +55,58 @@ export class OrderSaga {
           channel: 'telegram',
           metadata: { media: event.mediaBuffer },
         });
-        await this.channelsService.sendMessage(adminMessage, adminId, 'telegram');
-        this.logger.log(`✅ Notificación enviada al admin para pedido ${event.orderId}`);
+        await this.channelsService.sendMessage(
+          adminMessage,
+          adminId,
+          'telegram',
+        );
+        this.logger.log(
+          `✅ Notificación enviada al admin para pedido ${event.orderId}`,
+        );
       } catch (err: any) {
         this.logger.error(`❌ Error notificando al admin: ${err.message}`);
       }
     } else {
-      this.logger.warn('⚠️ No hay TELEGRAM_ADMIN_ID configurado. No se notificó al administrador.');
+      this.logger.warn(
+        '⚠️ No hay TELEGRAM_ADMIN_ID configurado. No se notificó al administrador.',
+      );
     }
 
     // 2. Intento de Validación Automática (Hito 3.3)
     if (total > 0) {
-      this.logger.log(`💰 Saga: Intentando validación automática para $${total}...`);
+      this.logger.log(
+        `💰 Saga: Intentando validación automática para $${total}...`,
+      );
 
       const financeResponse = await this.financeAgent.handleRequest({
         from: 'fresquitoh-orchestrator',
         to: 'finance-agent',
         action: 'verify_payment',
         context: { clientId: event.clientId },
-        data: { amount: total }
+        data: { amount: total },
       });
 
-      if (financeResponse.status === 'SUCCESS' && financeResponse.data.verified) {
-        this.logger.log(`✅ Saga: Pago validado automáticamente para pedido ${event.orderId}`);
+      if (
+        financeResponse.status === 'SUCCESS' &&
+        financeResponse.data.verified
+      ) {
+        this.logger.log(
+          `✅ Saga: Pago validado automáticamente para pedido ${event.orderId}`,
+        );
 
         // Disparar aprobación automática
         this.eventEmitter.emit(
           'order.approved',
-          new AdminPaymentApprovedEvent(event.orderId, 'SYSTEM-AUTO', event.clientId)
+          new AdminPaymentApprovedEvent(
+            event.orderId,
+            'SYSTEM-AUTO',
+            event.clientId,
+          ),
         );
       } else {
-        this.logger.log(`⏳ Saga: Validación automática pendiente o fallida para pedido ${event.orderId}`);
+        this.logger.log(
+          `⏳ Saga: Validación automática pendiente o fallida para pedido ${event.orderId}`,
+        );
       }
     }
   }
@@ -100,35 +123,46 @@ export class OrderSaga {
     let excelTotal = 0;
 
     try {
-      const details = await this.inventoryProvider.getPrepaidOrderDetails(event.orderId);
+      const details = await this.inventoryProvider.getPrepaidOrderDetails(
+        event.orderId,
+      );
       if (details) {
         clientId = clientId || details.clientId;
         items = details.items || [];
         excelTotal = details.total || 0;
       }
     } catch (e: any) {
-      this.logger.warn(`⚠️ No se pudieron recuperar detalles del Excel para ${event.orderId}: ${e.message}`);
+      this.logger.warn(
+        `⚠️ No se pudieron recuperar detalles del Excel para ${event.orderId}: ${e.message}`,
+      );
     }
 
     if (!clientId) {
-      this.logger.error(`❌ No se pudo determinar el Cliente para el pedido ${event.orderId}`);
+      this.logger.error(
+        `❌ No se pudo determinar el Cliente para el pedido ${event.orderId}`,
+      );
       return;
     }
 
     const client = await this.clientsService.findOne(clientId);
 
     if (!client) {
-      this.logger.error(`❌ Cliente ${clientId} no encontrado en la base de datos para aprobación`);
+      this.logger.error(
+        `❌ Cliente ${clientId} no encontrado en la base de datos para aprobación`,
+      );
       return;
     }
 
     // UNIFICACIÓN DE SESIÓN: Usar el teléfono como clave principal de sesión, igual que el orquestador
     const sessionClientId = client.phone || client.lid || clientId;
-    let session = await this.sessionsService.findActiveByClientId(sessionClientId);
+    let session =
+      await this.sessionsService.findActiveByClientId(sessionClientId);
 
     // Si no hay sesión activa, crear una nueva vinculada al teléfono
     if (!session) {
-      this.logger.log(`🔍 Creando nueva sesión para recolección de datos de ${client.name} (Target: ${sessionClientId})`);
+      this.logger.log(
+        `🔍 Creando nueva sesión para recolección de datos de ${client.name} (Target: ${sessionClientId})`,
+      );
       session = await this.sessionsService.create(
         new Session({
           id: crypto.randomUUID(),
@@ -139,14 +173,22 @@ export class OrderSaga {
           flowState: 'IDLE',
           emotionalState: EmotionalState.neutral(),
           lastActivity: new Date(),
-          metadata: {}
-        })
+          metadata: {},
+        }),
       );
-    }    // VERIFICACIÓN DE PERFIL COMPLETO (Hito solicitado por Miguel)
-    const isProfileComplete = !!(client.fullName && client.documentType && client.documentNumber && client.address && client.email);
+    } // VERIFICACIÓN DE PERFIL COMPLETO (Hito solicitado por Miguel)
+    const isProfileComplete = !!(
+      client.fullName &&
+      client.documentType &&
+      client.documentNumber &&
+      client.address &&
+      client.email
+    );
 
     if (!isProfileComplete) {
-      this.logger.log(`⚠️ Cliente ${client.name} tiene perfil incompleto. Iniciando recolección de datos masiva.`);
+      this.logger.log(
+        `⚠️ Cliente ${client.name} tiene perfil incompleto. Iniciando recolección de datos masiva.`,
+      );
 
       // Asegurar que metadata existe
       session.metadata = session.metadata || {};
@@ -159,25 +201,33 @@ export class OrderSaga {
       session.setFlowState('AWAITING_BULK_DATA');
       await this.sessionsService.update(session);
 
-      const whatsappJid = clientId.includes('@') ? clientId : `${clientId}@s.whatsapp.net`;
-      await this.channelsService.sendMessage(Message.create({
-        content: prompt,
-        role: 'assistant',
-        channel: 'whatsapp'
-      }), whatsappJid, 'whatsapp');
+      const whatsappJid = clientId.includes('@')
+        ? clientId
+        : `${clientId}@s.whatsapp.net`;
+      await this.channelsService.sendMessage(
+        Message.create({
+          content: prompt,
+          role: 'assistant',
+          channel: 'whatsapp',
+        }),
+        whatsappJid,
+        'whatsapp',
+      );
       return;
     }
     // SI EL PERFIL ESTÁ COMPLETO: PROCEDER NORMALMENTE
     try {
       const config = await this.inventoryProvider.getConfig();
 
-      // PRIORIDAD: 1. Items de la sesión (vienen de la interacción actual) 
+      // PRIORIDAD: 1. Items de la sesión (vienen de la interacción actual)
       // 2. Items recuperados del Excel (vienen de lo que el cliente realmente puso en el carrito de prepago)
       const sessionItems = session?.metadata?.currentOrderItems || [];
       const finalItems = sessionItems.length > 0 ? sessionItems : items;
 
       if (finalItems.length === 0) {
-        this.logger.warn(`⚠️ No se encontraron productos para el pedido ${event.orderId}. El registro en entrega podría estar incompleto.`);
+        this.logger.warn(
+          `⚠️ No se encontraron productos para el pedido ${event.orderId}. El registro en entrega podría estar incompleto.`,
+        );
       }
 
       const deliveryDate = this.calculateDeliveryDate(finalItems, config);
@@ -196,7 +246,7 @@ export class OrderSaga {
           price: i.pricePerUnit || i.price || 0,
         })),
         deliveryFee,
-        total
+        total,
       });
 
       await this.inventoryProvider.registerDeliveryOrder(order, client);
@@ -208,7 +258,7 @@ export class OrderSaga {
       const updatedMetadata = {
         ...(client.metadata || {}),
         lastOrderDate: new Date().toISOString(),
-        inactivityReminderSent: false
+        inactivityReminderSent: false,
       };
       client.updateProfile({ metadata: updatedMetadata });
       await this.clientsService.save(client);
@@ -221,29 +271,58 @@ export class OrderSaga {
         role: 'assistant',
         channel: 'whatsapp',
       });
-      const whatsappJid = client.phone.includes('@') ? client.phone : `${client.phone}@s.whatsapp.net`;
-      await this.channelsService.sendMessage(confirmationMessage, whatsappJid, 'whatsapp');
+      const whatsappJid = client.phone.includes('@')
+        ? client.phone
+        : `${client.phone}@s.whatsapp.net`;
+      await this.channelsService.sendMessage(
+        confirmationMessage,
+        whatsappJid,
+        'whatsapp',
+      );
 
       if (session) {
         session.setFlowState('IDLE');
         await this.sessionsService.update(session);
       }
     } catch (error) {
-      this.logger.error(`❌ Error finalizando pedido aprobado: ${error.message}`);
+      this.logger.error(
+        `❌ Error finalizando pedido aprobado: ${error.message}`,
+      );
     }
   }
 
-  private calculateDeliveryDate(items: any[], config: Record<string, string>): string {
-    const isGarbage = (val: string) => !val || val.toLowerCase().includes('frut') || val.toLowerCase().includes('futra');
+  private calculateDeliveryDate(
+    items: any[],
+    config: Record<string, string>,
+  ): string {
+    const isGarbage = (val: string) =>
+      !val ||
+      val.toLowerCase().includes('frut') ||
+      val.toLowerCase().includes('futra');
     let date = 'Jueves';
 
-    if (config['FECHA_ENTREGA_EXACTA'] && config['FECHA_ENTREGA_EXACTA'].length > 3 && !isGarbage(config['FECHA_ENTREGA_EXACTA'])) {
+    if (
+      config['FECHA_ENTREGA_EXACTA'] &&
+      config['FECHA_ENTREGA_EXACTA'].length > 3 &&
+      !isGarbage(config['FECHA_ENTREGA_EXACTA'])
+    ) {
       date = config['FECHA_ENTREGA_EXACTA'];
-      this.logger.log(`📅 Usando fecha de entrega exacta desde config: ${date}`);
+      this.logger.log(
+        `📅 Usando fecha de entrega exacta desde config: ${date}`,
+      );
     } else {
-      const d1 = !isGarbage(config['DIAS_ENTREGA_1']) ? config['DIAS_ENTREGA_1'] : 'Jueves';
-      const d2 = !isGarbage(config['DIAS_ENTREGA_2']) ? config['DIAS_ENTREGA_2'] : 'Lunes';
-      const hasOutOfStock = items.some(i => i.isOutOfStock || (i.stock !== undefined && i.stock <= 0) || i.available === false);
+      const d1 = !isGarbage(config['DIAS_ENTREGA_1'])
+        ? config['DIAS_ENTREGA_1']
+        : 'Jueves';
+      const d2 = !isGarbage(config['DIAS_ENTREGA_2'])
+        ? config['DIAS_ENTREGA_2']
+        : 'Lunes';
+      const hasOutOfStock = items.some(
+        (i) =>
+          i.isOutOfStock ||
+          (i.stock !== undefined && i.stock <= 0) ||
+          i.available === false,
+      );
 
       const now = new Date();
       const today = now.getDay();
@@ -255,7 +334,9 @@ export class OrderSaga {
       } else {
         date = hasOutOfStock ? d2 : d1; // Domingo
       }
-      this.logger.log(`📅 Fecha de entrega calculada: ${date} (D1: ${d1}, D2: ${d2}, OutOfStock: ${hasOutOfStock})`);
+      this.logger.log(
+        `📅 Fecha de entrega calculada: ${date} (D1: ${d1}, D2: ${d2}, OutOfStock: ${hasOutOfStock})`,
+      );
     }
 
     return date;
@@ -263,12 +344,18 @@ export class OrderSaga {
 
   @OnEvent('order.shipped')
   async handleOrderShipped(event: { orderId: string; adminId: string }) {
-    this.logger.log(`🚛 Saga: Order ${event.orderId} shipped. Notifying client...`);
+    this.logger.log(
+      `🚛 Saga: Order ${event.orderId} shipped. Notifying client...`,
+    );
 
     try {
-      const details = await this.inventoryProvider.getDeliveryOrderDetails(event.orderId);
+      const details = await this.inventoryProvider.getDeliveryOrderDetails(
+        event.orderId,
+      );
       if (!details || !details.phone) {
-        this.logger.warn(`⚠️ No se pudo encontrar el teléfono del cliente para el pedido ${event.orderId}`);
+        this.logger.warn(
+          `⚠️ No se pudo encontrar el teléfono del cliente para el pedido ${event.orderId}`,
+        );
         return;
       }
 
@@ -279,7 +366,7 @@ export class OrderSaga {
           ...(client.metadata || {}),
           lastDeliveryDate: new Date().toISOString(),
           lastShippedOrderId: event.orderId,
-          feedbackSentForOrder: null // Resetear para este nuevo pedido
+          feedbackSentForOrder: null, // Resetear para este nuevo pedido
         };
         client.updateProfile({ metadata: updatedMetadata });
         await this.clientsService.save(client);
@@ -288,13 +375,17 @@ export class OrderSaga {
       const message = Message.create({
         content: `¡Buenas noticias! 🚛 Su pedido ya salió de nuestro centro de despacho y va camino a su dirección. El repartidor le contactará al llegar. ¡Esperamos que disfrute mucho estos productos frescos que le enviamos!`,
         role: 'assistant',
-        channel: 'whatsapp'
+        channel: 'whatsapp',
       });
 
-      const whatsappJid = details.phone.includes('@') ? details.phone : `${details.phone}@s.whatsapp.net`;
+      const whatsappJid = details.phone.includes('@')
+        ? details.phone
+        : `${details.phone}@s.whatsapp.net`;
       await this.channelsService.sendMessage(message, whatsappJid, 'whatsapp');
-      
-      this.logger.log(`✅ Notificación de envío enviada a ${details.phone} para pedido ${event.orderId}`);
+
+      this.logger.log(
+        `✅ Notificación de envío enviada a ${details.phone} para pedido ${event.orderId}`,
+      );
     } catch (error: any) {
       this.logger.error(`❌ Error notificando envío: ${error.message}`);
     }
@@ -302,24 +393,37 @@ export class OrderSaga {
 
   @OnEvent('order.rejected')
   async handleOrderRejected(event: { orderId: string; adminId: string }) {
-    this.logger.log(`❌ Saga: Order ${event.orderId} rejected. Reverting stock...`);
+    this.logger.log(
+      `❌ Saga: Order ${event.orderId} rejected. Reverting stock...`,
+    );
 
     try {
       // 1. Recuperar el pedido de la lista de prepago para saber qué devolver
-      const prepaidOrder = await this.inventoryProvider.getPrepaidOrderDetails(event.orderId);
+      const prepaidOrder = await this.inventoryProvider.getPrepaidOrderDetails(
+        event.orderId,
+      );
 
       if (prepaidOrder) {
-        this.logger.log(`🔄 Reventing stock for ${prepaidOrder.items.length} items`);
+        this.logger.log(
+          `🔄 Reventing stock for ${prepaidOrder.items.length} items`,
+        );
         // 2. Devolver stock
         for (const item of prepaidOrder.items) {
-          await this.inventoryProvider.updateStock(item.productId, item.quantity);
+          await this.inventoryProvider.updateStock(
+            item.productId,
+            item.quantity,
+          );
         }
 
         // 3. Eliminar de prepago
         await this.inventoryProvider.removeFromPrepaidList(event.orderId);
-        this.logger.log(`✅ Stock reverted and order ${event.orderId} removed from prepago`);
+        this.logger.log(
+          `✅ Stock reverted and order ${event.orderId} removed from prepago`,
+        );
       } else {
-        this.logger.warn(`⚠️ Could not find details for order ${event.orderId} in prepago list.`);
+        this.logger.warn(
+          `⚠️ Could not find details for order ${event.orderId} in prepago list.`,
+        );
       }
     } catch (error) {
       this.logger.error(`❌ Error rejecting order: ${error.message}`);

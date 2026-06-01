@@ -1,0 +1,11 @@
+node_modules
+.venv
+__pycache__
+dist
+.turbo
+.git
+.agents
+*.db
+*.log
+sessions
+.env

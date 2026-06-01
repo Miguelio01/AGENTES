@@ -36,127 +36,169 @@
         <!-- Header -->
         <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
             <div class="flex items-center gap-4">
+                <img src="data:image/png;base64,<%= logo %>" class="w-16 h-16 rounded-full shadow-lg border-2 border-frescoh-lime" alt="Frescoh! Logo">
                 <div>
                     <h1 class="text-3xl font-black text-frescoh-dark flex items-center gap-2 uppercase tracking-tight">
                         FRESCOH! <span class="text-frescoh-lime bg-frescoh-dark px-2 py-0.5 rounded">ÓRDENES</span>
                     </h1>
-                    <p class="text-gray-500 font-medium">Historial y Control de Pedidos</p>
+                    <div class="flex items-center gap-2 mt-1">
+                        <p class="text-gray-500 font-medium text-xs">Registro y Control de Operaciones</p>
+                        <div class="flex items-center gap-1.5 ml-2">
+                            <span class="flex h-2 w-2 relative">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Live Sync</span>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="flex items-center gap-3">
-                <a href="/admin/orders/export-xlsx" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold shadow-lg hover:opacity-90 transition text-sm flex items-center gap-2">
-                    📥 Descargar Excel
+                <a href="/admin/orders/new" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-black shadow-lg hover:scale-105 transition text-xs flex items-center gap-2">
+                    ➕ Nuevo Pedido
                 </a>
-                <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm">Volver a Inventario</a>
+                <a :href="'/admin/orders/export-products-xlsx?cycleId=' + selectedCycleId" class="bg-white border border-orange-200 text-orange-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-orange-50 transition text-xs flex items-center gap-2">
+                    📦 Despacho
+                </a>
+                <a :href="'/admin/orders/export-xlsx?cycleId=' + selectedCycleId" class="bg-white border border-blue-200 text-blue-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-50 transition text-xs flex items-center gap-2">
+                    📥 Reporte
+                </a>
+                <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter">Inventario</a>
             </div>
         </header>
 
         <main>
             <!-- Dashboard Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="card p-6 border-l-4 border-l-frescoh-dark flex flex-col justify-center h-full">
-                    <p class="text-gray-500 text-xs uppercase tracking-wider font-black text-center">Total Pedidos</p>
-                    <p class="text-4xl font-bold text-frescoh-dark text-center mt-2" x-text="orders.length"></p>
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+                <div class="card p-4 border-l-4 border-l-frescoh-dark flex flex-col justify-center">
+                    <p class="text-gray-500 text-[9px] uppercase tracking-wider font-black">Total Pedidos</p>
+                    <p class="text-2xl font-bold text-frescoh-dark mt-1" x-text="filteredOrders.length"></p>
                 </div>
-                <div class="card p-6 border-l-4 border-l-frescoh-lime flex flex-col justify-center h-full">
-                    <p class="text-gray-500 text-xs uppercase tracking-wider font-black text-center">Ingresos Brutos</p>
-                    <p class="text-4xl font-bold text-frescoh-dark text-center mt-2" x-text="formatCurrency(totalRevenue)"></p>
+                <div class="card p-4 border-l-4 border-l-frescoh-lime flex flex-col justify-center">
+                    <p class="text-gray-500 text-[9px] uppercase tracking-wider font-black">Ingresos Brutos</p>
+                    <p class="text-2xl font-bold text-frescoh-dark mt-1" x-text="formatCurrency(totalRevenue)"></p>
                 </div>
-                <div class="card p-6 border-l-4 border-l-blue-500 flex flex-col justify-center h-full">
-                    <p class="text-gray-500 text-xs uppercase tracking-wider font-black text-center">Con Domicilio</p>
-                    <p class="text-4xl font-bold text-blue-600 text-center mt-2" x-text="ordersWithDelivery"></p>
+                <div class="card p-4 border-l-4 border-l-indigo-500 flex flex-col justify-center bg-indigo-50/10">
+                    <p class="text-gray-500 text-[9px] uppercase tracking-wider font-black">Promedio Ticket</p>
+                    <p class="text-2xl font-bold text-indigo-600 mt-1" x-text="formatCurrency(filteredOrders.length ? totalRevenue/filteredOrders.length : 0)"></p>
+                </div>
+                <div class="card p-4 border-l-4 border-l-blue-500 flex flex-col justify-center bg-blue-50/10">
+                    <p class="text-gray-500 text-[9px] uppercase tracking-wider font-black">Con Domicilio</p>
+                    <p class="text-2xl font-bold text-blue-600 mt-1" x-text="ordersWithDelivery"></p>
+                </div>
+                <div class="card p-4 border-l-4 border-l-orange-500 flex flex-col justify-center">
+                    <p class="text-gray-500 text-[9px] uppercase tracking-wider font-black">Pendientes</p>
+                    <p class="text-2xl font-bold text-orange-600 mt-1" x-text="filteredOrders.filter(o => o.status === 'pending').length"></p>
                 </div>
             </div>
 
             <!-- Tabla de Pedidos -->
-            <div class="card overflow-hidden mb-12 border-l-4 border-l-frescoh-lime shadow-lg">
-                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">📋 Historial de Órdenes</h3>
+            <div class="card overflow-hidden mb-12 border-t-4 border-t-frescoh-dark shadow-xl">
+                <div class="bg-gray-50 px-6 py-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
+                        <div>
+                            <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">📋 Bitácora de Ventas</h3>
+                            <p class="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Control de estados y sincronización con Sheets</p>
+                        </div>
+                        
+                        <!-- Filtro por Cosecha -->
+                        <div class="flex items-center gap-2 bg-white border border-gray-300 rounded-xl px-3 py-1.5 shadow-sm">
+                            <span class="text-[10px] font-black text-gray-400 uppercase">Cosecha:</span>
+                            <select x-model="selectedCycleId" class="text-xs font-bold text-frescoh-dark outline-none bg-transparent cursor-pointer">
+                                <option value="all">Ver Todas</option>
+                                <template x-for="cycle in cycles" :key="cycle.id">
+                                    <option :value="cycle.id" x-text="cycle.name + (cycle.status === 'OPEN' ? ' (Activa)' : '')" :selected="activeCycle && cycle.id === activeCycle.id"></option>
+                                </template>
+                            </select>
+                        </div>
                     </div>
-                    <input type="text" x-model="search" placeholder="Buscar por ID, Cliente o Teléfono..." class="border border-gray-300 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full md:w-72 bg-white">
+                    <div class="relative w-full md:w-80">
+                        <input type="text" x-model="search" placeholder="Buscar por ID, Cliente..." class="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full bg-white shadow-inner">
+                    </div>
                 </div>
                 
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[900px]">
+                    <table class="w-full text-left border-collapse min-w-[1000px]">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Fecha</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">ID Pedido</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Cliente</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase hidden md:table-cell">Productos</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Subtotal</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Domicilio</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Total</th>
-                                <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-center">Estado</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Fecha / ID</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Cliente</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest hidden lg:table-cell">Contenido del Pedido</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Subtotal</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Domicilio</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Total</th>
+                                <th class="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Estado Operativo</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200">
                             <template x-for="order in filteredOrders" :key="order.id">
-                                <tr class="hover:bg-frescoh-light/30 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <div class="font-bold text-gray-800 text-xs" x-text="formatDate(order.createdAt).split(',')[0]"></div>
-                                        <div class="text-[10px] text-gray-400 font-mono" x-text="formatDate(order.createdAt).split(',')[1]"></div>
+                                <tr class="hover:bg-frescoh-light/20 transition-all border-l-4" 
+                                    :class="{
+                                        'border-l-orange-400': order.status === 'pending',
+                                        'border-l-blue-400': order.status === 'confirmed',
+                                        'border-l-frescoh-dark': order.status === 'delivered',
+                                        'border-l-red-400': order.status === 'cancelled'
+                                    }">
+                                    <td class="px-6 py-5">
+                                        <div class="font-black text-frescoh-dark text-xs uppercase" x-text="formatDate(order.createdAt).split(',')[0]"></div>
+                                        <div class="text-[9px] text-gray-400 font-mono mt-0.5 tracking-tighter" x-text="order.id"></div>
                                     </td>
-                                    <td class="px-6 py-4 font-mono text-xs font-bold text-frescoh-dark" x-text="order.id"></td>
-                                    <td class="px-6 py-4">
-                                        <div class="font-bold text-gray-800 text-sm capitalize" x-text="order.client.fullName || order.client.name"></div>
-                                        <div class="text-[11px] text-gray-500" x-text="order.client.phone"></div>
+                                    <td class="px-6 py-5">
+                                        <div class="font-black text-gray-800 text-sm capitalize" x-text="order.client.fullName || order.client.name"></div>
+                                        <div class="text-[10px] text-gray-500 font-bold flex items-center gap-1">
+                                            <span class="opacity-50">📱</span> <span x-text="order.client.phone"></span>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 text-[11px] text-gray-600 hidden md:table-cell">
-                                        <ul class="list-disc list-inside">
+                                    <td class="px-6 py-5 text-[11px] text-gray-600 hidden lg:table-cell">
+                                        <div class="flex flex-col gap-1.5">
                                             <template x-for="item in order.items">
-                                                <li>
-                                                    <span x-text="`${item.quantity}x ${item.name}`"></span>
-                                                    <span class="text-gray-400 font-mono ml-1" x-text="`(${formatCurrency(item.price)})`"></span>
-                                                </li>
+                                                <div class="flex items-center justify-between bg-gray-50/80 px-2 py-1 rounded-lg border border-gray-100 hover:border-frescoh-dark/20 transition-colors">
+                                                    <div class="flex items-center gap-1.5">
+                                                        <span class="text-frescoh-dark font-black" x-text="item.quantity + 'x'"></span>
+                                                        <span class="text-gray-700 font-bold" x-text="item.name"></span>
+                                                    </div>
+                                                    <span class="text-[9px] font-mono text-gray-400 bg-white px-1.5 py-0.5 rounded border border-gray-100 shadow-sm ml-4" x-text="formatCurrency(item.price)"></span>
+                                                </div>
                                             </template>
-                                        </ul>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 text-right font-medium text-gray-700" x-text="formatCurrency(order.subtotal)"></td>
-                                    <td class="px-6 py-4 text-right text-sm min-w-[140px]">
+                                    <td class="px-6 py-5 text-right font-medium text-gray-600 text-xs" x-text="formatCurrency(order.subtotal)"></td>
+                                    <td class="px-6 py-5 text-right text-xs">
                                         <div x-show="!order.isEditingFee" class="flex items-center justify-end gap-2 group">
-                                            <span x-show="order.deliveryFee > 0" class="text-gray-800 font-medium" x-text="formatCurrency(order.deliveryFee)"></span>
-                                            <span x-show="order.deliveryFee === 0" class="text-gray-400 italic text-[11px] bg-gray-100 px-2 py-1 rounded">No (Recoge)</span>
-                                            <button @click="order.isEditingFee = true" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-frescoh-dark transition cursor-pointer">✏️</button>
+                                            <span x-show="order.deliveryFee > 0" class="text-gray-800 font-black" x-text="formatCurrency(order.deliveryFee)"></span>
+                                            <span x-show="order.deliveryFee === 0" class="text-gray-400 italic text-[10px] bg-gray-50 px-2 py-1 rounded-lg border border-dashed border-gray-200">RECOGE</span>
+                                            <button @click="order.isEditingFee = true" class="opacity-0 group-hover:opacity-100 text-frescoh-dark hover:scale-125 transition cursor-pointer">✏️</button>
                                         </div>
                                         <div x-show="order.isEditingFee" class="flex items-center justify-end gap-1">
-                                            <input type="number" x-model.number="order.newDeliveryFee" class="w-16 border border-gray-300 rounded text-right text-[11px] px-1 focus:ring-1 focus:ring-frescoh-dark outline-none bg-white">
-                                            <button @click="saveDeliveryFee(order)" class="text-[9px] uppercase font-bold bg-frescoh-lime text-frescoh-dark px-1.5 py-1 rounded hover:opacity-80 shadow-sm cursor-pointer">Ok</button>
-                                            <button @click="order.isEditingFee = false; order.newDeliveryFee = order.deliveryFee" class="text-[10px] text-gray-500 hover:text-red-500 cursor-pointer">✖</button>
+                                            <input type="number" x-model.number="order.newDeliveryFee" class="w-20 border-2 border-frescoh-dark rounded-lg text-right text-xs px-2 py-1 outline-none bg-white font-black">
+                                            <button @click="saveDeliveryFee(order)" class="bg-frescoh-dark text-frescoh-lime p-1 rounded-lg hover:opacity-80 shadow-sm cursor-pointer">✅</button>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 text-right font-black text-frescoh-dark" x-text="formatCurrency(order.total)"></td>
-                                    <td class="px-6 py-4 text-center">
+                                    <td class="px-6 py-5 text-right font-black text-frescoh-dark text-sm" x-text="formatCurrency(order.total)"></td>
+                                    <td class="px-6 py-5 text-center">
                                         <div x-show="!order.isEditingStatus">
-                                            <span class="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:opacity-80 shadow-sm border"
+                                            <span class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:scale-105 transition-all shadow-sm border-2"
                                                 @click="order.isEditingStatus = true"
                                                 :class="{
-                                                    'bg-yellow-50 text-yellow-700 border-yellow-200': order.status === 'pending',
+                                                    'bg-orange-50 text-orange-700 border-orange-200': order.status === 'pending',
                                                     'bg-blue-50 text-blue-700 border-blue-200': order.status === 'confirmed',
-                                                    'bg-frescoh-light text-frescoh-dark border-frescoh-lime': order.status === 'delivered',
+                                                    'bg-green-50 text-green-700 border-green-200': order.status === 'delivered',
                                                     'bg-red-50 text-red-700 border-red-200': order.status === 'cancelled'
                                                 }" x-text="order.status"></span>
                                         </div>
                                         <div x-show="order.isEditingStatus" class="flex items-center justify-center gap-1">
-                                            <select x-model="order.newStatus" class="text-[10px] border border-gray-300 rounded px-1 py-1 focus:ring-1 focus:ring-frescoh-dark outline-none bg-white font-bold uppercase">
+                                            <select x-model="order.newStatus" class="text-[10px] border-2 border-frescoh-dark rounded-lg px-2 py-1.5 focus:ring-0 outline-none bg-white font-black uppercase shadow-sm">
                                                 <option value="pending">Pending</option>
                                                 <option value="confirmed">Confirmed</option>
                                                 <option value="delivered">Delivered</option>
                                                 <option value="cancelled">Cancelled</option>
                                             </select>
-                                            <button @click="saveStatus(order)" class="text-[9px] uppercase font-bold bg-frescoh-lime text-frescoh-dark px-1.5 py-1 rounded hover:opacity-80 shadow-sm cursor-pointer">Ok</button>
-                                            <button @click="order.isEditingStatus = false; order.newStatus = order.status" class="text-[10px] text-gray-400 hover:text-red-500 cursor-pointer">✖</button>
+                                            <button @click="saveStatus(order)" class="bg-frescoh-dark text-frescoh-lime p-1.5 rounded-lg hover:opacity-80 shadow-md cursor-pointer">✅</button>
+                                            <button @click="order.isEditingStatus = false; order.newStatus = order.status" class="text-red-500 hover:scale-125 transition cursor-pointer ml-1">✖</button>
                                         </div>
                                     </td>
                                 </tr>
                             </template>
-
-                            <tr x-show="filteredOrders.length === 0">
-                                <td colspan="8" class="px-6 py-12 text-center text-gray-500 italic">
-                                    No se encontraron órdenes.
-                                </td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -168,35 +210,51 @@
         function ordersApp() {
             return {
                 orders: <%- JSON.stringify(orders) %>,
+                cycles: <%- JSON.stringify(cycles) %>,
+                activeCycle: <%- JSON.stringify(activeCycle) %>,
                 search: '',
+                selectedCycleId: 'all',
                 
                 init() {
+                    if (this.activeCycle) {
+                        this.selectedCycleId = this.activeCycle.id;
+                    }
+
                     this.orders.forEach(o => {
-                        o.subtotal = o.total - o.deliveryFee;
-                        o.newDeliveryFee = o.deliveryFee;
-                        o.isEditingFee = false;
-                        o.isEditingStatus = false;
-                        o.newStatus = o.status;
+                        this.enrichOrder(o);
                     });
                 },
 
+                enrichOrder(o) {
+                    o.subtotal = o.total - o.deliveryFee;
+                    o.newDeliveryFee = o.deliveryFee;
+                    o.isEditingFee = false;
+                    o.isEditingStatus = false;
+                    o.newStatus = o.status;
+                },
+
                 get filteredOrders() {
-                    if (!this.search) return this.orders;
-                    const s = this.search.toLowerCase();
-                    return this.orders.filter(o => 
-                        o.id.toLowerCase().includes(s) || 
-                        (o.client.name && o.client.name.toLowerCase().includes(s)) ||
-                        (o.client.fullName && o.client.fullName.toLowerCase().includes(s)) ||
-                        (o.client.phone && o.client.phone.includes(s))
-                    );
+                    let filtered = this.orders;
+                    if (this.selectedCycleId !== 'all') {
+                        filtered = filtered.filter(o => o.salesCycleId === this.selectedCycleId);
+                    }
+                    if (this.search) {
+                        const s = this.search.toLowerCase();
+                        filtered = filtered.filter(o => 
+                            o.id.toLowerCase().includes(s) || 
+                            (o.client.fullName && o.client.fullName.toLowerCase().includes(s)) ||
+                            (o.client.phone && o.client.phone.includes(s))
+                        );
+                    }
+                    return filtered;
                 },
 
                 get totalRevenue() {
-                    return this.orders.reduce((sum, order) => sum + (order.total || 0), 0);
+                    return this.filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
                 },
 
                 get ordersWithDelivery() {
-                    return this.orders.filter(o => o.deliveryFee > 0).length;
+                    return this.filteredOrders.filter(o => o.deliveryFee > 0).length;
                 },
 
                 formatCurrency(value) {
@@ -206,12 +264,10 @@
                 formatDate(dateString) {
                     if (!dateString) return 'N/A';
                     const d = new Date(dateString);
-                    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
                 },
 
                 async saveDeliveryFee(order) {
-                    if (order.newDeliveryFee === null || order.newDeliveryFee === undefined) return;
-                    
                     try {
                         const response = await fetch(`/admin/orders/api/${order.id}/delivery-fee`, {
                             method: 'PATCH',
@@ -221,16 +277,14 @@
                         
                         if (response.ok) {
                             const res = await response.json();
-                            if (res.status === 'SUCCESS') {
-                                order.deliveryFee = order.newDeliveryFee;
-                                order.total = res.newTotal;
-                                order.isEditingFee = false;
-                            }
-                        } else {
-                            alert('No se pudo guardar el domicilio.');
+                            order.deliveryFee = order.newDeliveryFee;
+                            order.total = res.newTotal;
+                            order.subtotal = order.total - order.deliveryFee;
+                            order.isEditingFee = false;
+                            window.frescohNotify({ title: 'Domicilio Actualizado', message: 'Total recalculado correctamente', type: 'success' });
                         }
                     } catch (e) {
-                        alert('Error de conexión: ' + e.message);
+                        window.frescohNotify({ title: 'Error', message: e.message, type: 'error' });
                     }
                 },
 
@@ -247,13 +301,17 @@
                             if (res.status === 'SUCCESS') {
                                 order.status = order.newStatus;
                                 order.isEditingStatus = false;
-                                alert('Estado actualizado y sincronizado con Excel ✅');
+                                // Si se canceló, desaparece de la lista local o marcamos como tal
+                                if (order.status === 'cancelled') {
+                                    this.orders = this.orders.filter(o => o.id !== order.id);
+                                    window.frescohNotify({ title: 'Orden Anulada', message: 'Stock devuelto e historial actualizado', type: 'warning' });
+                                } else {
+                                    window.frescohNotify({ title: 'Estado Actualizado', message: 'Sincronizado con inventario y Sheets', type: 'success' });
+                                }
                             }
-                        } else {
-                            alert('No se pudo actualizar el estado.');
                         }
                     } catch (e) {
-                        alert('Error de conexión: ' + e.message);
+                        window.frescohNotify({ title: 'Error', message: e.message, type: 'error' });
                     }
                 }
             }

@@ -1,17 +1,17 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { 
-  KNOWLEDGE_BASE_PORT, 
-  KNOWLEDGE_REPOSITORY_PORT, 
+import {
+  KNOWLEDGE_BASE_PORT,
+  KNOWLEDGE_REPOSITORY_PORT,
   LLM_PROVIDER_PORT,
   ILLMProvider,
-  IKnowledgeRepository
+  IKnowledgeRepository,
 } from '@agentes/domain';
-import { 
-  KnowledgeSchema, 
-  MongoKnowledgeRepository, 
-  VectorRAGAdapter 
+import {
+  KnowledgeSchema,
+  MongoKnowledgeRepository,
+  VectorRAGAdapter,
 } from '@agentes/infrastructure';
 import { KnowledgeSyncService } from './sync.service';
 import { AiModule } from '../ai/ai.module';
@@ -21,7 +21,9 @@ import { Model } from 'mongoose';
   imports: [
     ConfigModule,
     AiModule,
-    MongooseModule.forFeature([{ name: 'KnowledgeChunk', schema: KnowledgeSchema }]),
+    MongooseModule.forFeature([
+      { name: 'KnowledgeChunk', schema: KnowledgeSchema },
+    ]),
   ],
   providers: [
     KnowledgeSyncService,
@@ -32,7 +34,10 @@ import { Model } from 'mongoose';
     },
     {
       provide: KNOWLEDGE_BASE_PORT,
-      useFactory: (llmProvider: ILLMProvider, knowledgeRepo: IKnowledgeRepository) => {
+      useFactory: (
+        llmProvider: ILLMProvider,
+        knowledgeRepo: IKnowledgeRepository,
+      ) => {
         return new VectorRAGAdapter(llmProvider, knowledgeRepo);
       },
       inject: [LLM_PROVIDER_PORT, KNOWLEDGE_REPOSITORY_PORT],

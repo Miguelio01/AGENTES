@@ -1,14 +1,8 @@
 import { Injectable, Logger, OnModuleInit, Inject } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
-import { 
-  KNOWLEDGE_REPOSITORY_PORT, 
-  LLM_PROVIDER_PORT 
-} from '@agentes/domain';
-import type { 
-  IKnowledgeRepository, 
-  ILLMProvider 
-} from '@agentes/domain';
+import { KNOWLEDGE_REPOSITORY_PORT, LLM_PROVIDER_PORT } from '@agentes/domain';
+import type { IKnowledgeRepository, ILLMProvider } from '@agentes/domain';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -34,7 +28,9 @@ export class KnowledgeSyncService implements OnModuleInit {
   async onModuleInit() {
     this.logger.log(`🚀 Knowledge Sync initialized for: ${this.vaultPath}`);
     // Sincronización inicial al arrancar
-    this.syncKnowledge().catch(err => this.logger.error(`Initial sync failed: ${err.message}`));
+    this.syncKnowledge().catch((err) =>
+      this.logger.error(`Initial sync failed: ${err.message}`),
+    );
   }
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -45,11 +41,15 @@ export class KnowledgeSyncService implements OnModuleInit {
 
   async syncKnowledge() {
     if (!fs.existsSync(this.vaultPath)) {
-      this.logger.warn(`Vault path ${this.vaultPath} does not exist. Skipping sync.`);
+      this.logger.warn(
+        `Vault path ${this.vaultPath} does not exist. Skipping sync.`,
+      );
       return;
     }
 
-    const files = this.getAllFiles(this.vaultPath).filter(f => f.endsWith('.md'));
+    const files = this.getAllFiles(this.vaultPath).filter((f) =>
+      f.endsWith('.md'),
+    );
     this.logger.log(`Found ${files.length} markdown files in brain.`);
 
     for (const file of files) {
@@ -59,7 +59,7 @@ export class KnowledgeSyncService implements OnModuleInit {
         this.logger.error(`Error processing file ${file}: ${error.message}`);
       }
     }
-    
+
     this.logger.log('✅ Knowledge sync completed.');
   }
 
@@ -70,7 +70,8 @@ export class KnowledgeSyncService implements OnModuleInit {
 
     // Buscar si ya existe y si ha cambiado
     const existingChunks = await this.knowledgeRepo.findBySource(relativePath);
-    const hasChanged = existingChunks.length === 0 || existingChunks[0].checksum !== checksum;
+    const hasChanged =
+      existingChunks.length === 0 || existingChunks[0].checksum !== checksum;
 
     if (!hasChanged) {
       return;
@@ -92,7 +93,7 @@ export class KnowledgeSyncService implements OnModuleInit {
         source: relativePath,
         embedding,
         checksum,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
     }
   }
@@ -110,7 +111,7 @@ export class KnowledgeSyncService implements OnModuleInit {
       // Si un solo párrafo es más grande que el límite, lo cortamos por líneas
       if (p.length > maxLength) {
         if (currentChunk) chunks.push(currentChunk.trim());
-        
+
         const lines = p.split('\n');
         let lineChunk = '';
         for (const line of lines) {

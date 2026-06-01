@@ -14,7 +14,10 @@ import * as path from 'path';
       useFactory: (configService: ConfigService) => {
         let credentials = {};
         try {
-          const credsRoute = path.join(process.cwd(), 'google-credentials.json');
+          const credsRoute = path.join(
+            process.cwd(),
+            'google-credentials.json',
+          );
           if (fs.existsSync(credsRoute)) {
             credentials = JSON.parse(fs.readFileSync(credsRoute, 'utf8'));
           }
@@ -22,7 +25,9 @@ import * as path from 'path';
           console.error('Error loading Google credentials for Gmail:', e);
         }
 
-        const subject = configService.get<string>('GOOGLE_GMAIL_SUBJECT') || 'facturacion@frescoh.com';
+        const subject =
+          configService.get<string>('GOOGLE_GMAIL_SUBJECT') ||
+          'facturacion@frescoh.com';
         return new GmailAdapter(credentials, subject);
       },
     },
