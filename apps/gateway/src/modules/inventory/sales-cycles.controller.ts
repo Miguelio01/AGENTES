@@ -75,8 +75,11 @@ export class SalesCyclesAdminController {
         }
 
         const totalRevenue = productRevenue + deliveryRevenue;
-        const netProfit = totalRevenue - (cycle.manualSupplierPayment || 0);
-        const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+        // La utilidad neta ahora EXCLUYE los domicilios (se restan del total de ingresos)
+        // y también resta los pagos manuales a proveedores.
+        const netProfit = totalRevenue - deliveryRevenue - (cycle.manualSupplierPayment || 0);
+        // El margen se calcula sobre los ingresos de PRODUCTOS
+        const margin = productRevenue > 0 ? (netProfit / productRevenue) * 100 : 0;
 
         return {
           ...cycle,

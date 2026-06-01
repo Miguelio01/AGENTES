@@ -65,7 +65,8 @@
                             <tr>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Estado</th>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase">Nombre</th>
-                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Venta Total</th>
+                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Venta Productos</th>
+                                <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Domicilios</th>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right bg-orange-50/50">Pago Provedores</th>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-right">Utilidad Neta</th>
                                 <th class="px-4 py-3 text-xs font-bold text-gray-500 uppercase text-center">Acciones</th>
@@ -82,12 +83,15 @@
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="font-bold text-gray-800 text-sm" x-text="cycle.name"></div>
-                                        <div class="text-[9px] text-gray-500 font-medium mt-1">Domicilio: <span class="font-bold" x-text="formatCurrency(cycle.deliveryFee)"></span></div>
+                                        <div class="text-[9px] text-gray-500 font-medium mt-1">Config: <span class="font-bold" x-text="formatCurrency(cycle.deliveryFee)"></span>/domicilio</div>
                                         <button @click="openModal('edit', cycle)" class="text-[9px] text-indigo-600 hover:underline font-bold mt-1 uppercase tracking-tighter italic">Ajustar Cosecha ✏️</button>
                                     </td>
                                     
-                                    <!-- Venta Total (Productos + Domicilios) -->
-                                    <td class="px-4 py-4 text-right font-medium text-gray-700 text-sm" x-text="formatCurrency(cycle.metrics.totalRevenue)"></td>
+                                    <!-- Venta Productos -->
+                                    <td class="px-4 py-4 text-right font-medium text-gray-700 text-sm" x-text="formatCurrency(cycle.metrics.productRevenue)"></td>
+                                    
+                                    <!-- Ingresos por Domicilios (Excluidos de utilidad) -->
+                                    <td class="px-4 py-4 text-right font-medium text-blue-600 text-sm" x-text="formatCurrency(cycle.metrics.deliveryRevenue)"></td>
                                     
                                     <!-- Pago Proveedores (Editable Directamente) -->
                                     <td class="px-4 py-4 text-right bg-orange-50/30">
