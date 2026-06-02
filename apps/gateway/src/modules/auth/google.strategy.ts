@@ -30,9 +30,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const user = await this.authService.validateGoogleUser(email, fullName);
     
     if (!user) {
-      return done(new UnauthorizedException('Tu correo no está autorizado para acceder a este sistema.'), false);
+      throw new UnauthorizedException('Tu correo no está autorizado para acceder a este sistema.');
     }
     
-    done(null, user);
+    return user;
   }
 }
