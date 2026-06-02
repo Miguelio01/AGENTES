@@ -12,8 +12,9 @@ export class AuthService {
   ) {}
 
   async validateGoogleUser(email: string, name: string) {
+    const normalizedEmail = email.toLowerCase();
     const user = await this.prisma.user.findUnique({
-      where: { email },
+      where: { email: normalizedEmail },
     });
 
     if (!user) {
