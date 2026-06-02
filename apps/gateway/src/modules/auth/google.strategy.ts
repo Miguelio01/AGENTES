@@ -11,17 +11,18 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private readonly authService: AuthService,
   ) {
     super({
-      clientID: configService.get<string>('GOOGLE_CLIENT_ID'),
-      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET'),
+      clientID: configService.get<string>('GOOGLE_CLIENT_ID') || '',
+      clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET') || '',
       callbackURL: `${configService.get<string>('APP_URL')}/auth/google/callback`,
       scope: ['email', 'profile'],
-    });
+    } as any);
   }
 
   async validate(
     accessToken: string,
     refreshToken: string,
     profile: any,
+    done: VerifyCallback,
   ): Promise<any> {
     const { name, emails } = profile;
     const email = emails[0].value;
@@ -30,9 +31,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const user = await this.authService.validateGoogleUser(email, fullName);
     
     if (!user) {
-      throw new UnauthorizedException('Tu correo no está autorizado para acceder a este sistema.');
+      return done(new UnauthorizedException('Tu correo no está autorizado para acceder a este sistema.'), false);
     }
     
-    return user;
+    done(null, user);
   }
 }
