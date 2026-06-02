@@ -37,7 +37,7 @@ export class AuthController {
     // Guardar token en cookie HttpOnly
     res.cookie('jwt', access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Desactivado temporalmente para HTTP (sin SSL)
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 días
     });
