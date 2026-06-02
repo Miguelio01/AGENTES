@@ -6,6 +6,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { validate } from './shared/config/config.validator';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ClientsAdminController } from './modules/clients/clients-admin.controller';
 import { AgentsModule } from './modules/agents/agents.module';
 import { SessionsModule } from './modules/sessions/sessions.module';
 import { ClientsModule } from './modules/clients/clients.module';
@@ -16,7 +17,10 @@ import { MetricsModule } from './modules/metrics/metrics.module';
 import { OrchestratorModule } from './modules/orchestrator/orchestrator.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { RemindersModule } from './modules/reminders/reminders.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { UserToViewInterceptor } from './shared/interceptors/user-to-view.interceptor';
 
 @Module({
   imports: [
@@ -34,6 +38,7 @@ import { PrismaModule } from './prisma/prisma.module';
       inject: [ConfigService],
     }),
     PrismaModule,
+    AuthModule,
     AgentsModule,
     SessionsModule,
     ClientsModule,
@@ -45,7 +50,13 @@ import { PrismaModule } from './prisma/prisma.module';
     FinanceModule,
     RemindersModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, ClientsAdminController],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: UserToViewInterceptor,
+    },
+  ],
 })
 export class AppModule {}

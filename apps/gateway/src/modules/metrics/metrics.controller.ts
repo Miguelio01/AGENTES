@@ -1,9 +1,14 @@
-import { Controller, Get, Query, Inject, Header } from '@nestjs/common';
+import { Controller, Get, Query, Inject, Header, UseGuards } from '@nestjs/common';
 import { AI_METRIC_REPOSITORY_PORT } from '@agentes/domain';
 import type { IAiMetricRepository } from '@agentes/domain';
 import { LOGO_BASE64 } from './logo-base64';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('metrics')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
 export class MetricsController {
   constructor(
     @Inject(AI_METRIC_REPOSITORY_PORT)

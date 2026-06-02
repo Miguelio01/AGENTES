@@ -6,11 +6,17 @@ import {
   Body,
   Param,
   Render,
+  UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { LOGO_BASE64 } from '../metrics/logo-base64';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('admin/cycles')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
 export class SalesCyclesAdminController {
   constructor(private readonly prisma: PrismaService) {}
 

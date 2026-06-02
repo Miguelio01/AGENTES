@@ -7,14 +7,20 @@ import {
   Param,
   Render,
   Inject,
+  UseGuards,
 } from '@nestjs/common';
 import { INVENTORY_PROVIDER_PORT } from '@agentes/domain';
 import type { IInventoryProvider } from '@agentes/domain';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LOGO_BASE64 } from '../metrics/logo-base64';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('admin/inventory')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
 export class InventoryAdminController {
   constructor(
     @Inject(INVENTORY_PROVIDER_PORT)

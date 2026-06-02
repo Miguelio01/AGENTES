@@ -44,7 +44,7 @@
                     </h1>
                     <div class="flex items-center gap-2 mt-1">
                         <p class="text-gray-500 font-medium text-xs">Catálogo Inteligente de Cosecha</p>
-                        <% if (activeCycle) { %>
+                        <% if (typeof activeCycle !== 'undefined' && activeCycle) { %>
                             <span class="text-[9px] bg-frescoh-lime/20 text-frescoh-dark border border-frescoh-lime px-2 py-0.5 rounded-full font-black uppercase tracking-widest">
                                 🚜 Cosecha: <%= activeCycle.name %>
                             </span>
@@ -52,12 +52,26 @@
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-3">
-                <a href="/admin/cycles" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Cosechas</a>
-                <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs">Órdenes</a>
-                <button @click="openModal = true" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-bold shadow-lg hover:opacity-90 transition text-xs">
-                    + Nuevo Producto
-                </button>
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm mr-2">
+                  <div class="px-3 py-1 text-right">
+                    <p class="text-[9px] font-black text-gray-400 uppercase leading-none"><%= currentUser?.role === 'ADMIN' ? 'ADMINISTRADOR' : 'VENDEDOR' %></p>
+                    <p class="text-xs font-bold text-frescoh-dark truncate max-w-[100px]"><%= currentUser?.name || 'Usuario' %></p>
+                  </div>
+                  <a href="/auth/logout" class="bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-2 rounded-md transition-colors" title="Cerrar Sesión">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                  </a>
+                </div>
+
+                <% if (currentUser?.role === 'ADMIN') { %>
+                  <a href="/admin/cycles" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Cosechas</a>
+                  <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Órdenes</a>
+                  <a href="/admin/clients" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Clientes</a>
+                <% } %>
+                
+                <a href="/admin/orders/new" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-black shadow-lg hover:opacity-90 transition text-xs uppercase tracking-wide">
+                    + Nueva Orden
+                </a>
             </div>
         </header>
 

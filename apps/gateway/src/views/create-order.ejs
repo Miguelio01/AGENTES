@@ -44,9 +44,23 @@
                     <p class="text-gray-500 font-medium text-xs">Creación Manual de Órdenes</p>
                 </div>
             </div>
-            <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter">
-                Volver a Órdenes
-            </a>
+            
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center bg-white border border-gray-200 rounded-lg p-1 shadow-sm mr-2">
+                  <div class="px-3 py-1 text-right">
+                    <p class="text-[9px] font-black text-gray-400 uppercase leading-none"><%= currentUser?.role === 'ADMIN' ? 'ADMINISTRADOR' : 'VENDEDOR' %></p>
+                    <p class="text-xs font-bold text-frescoh-dark truncate max-w-[100px]"><%= currentUser?.name || 'Usuario' %></p>
+                  </div>
+                  <a href="/auth/logout" class="bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 p-2 rounded-md transition-colors" title="Cerrar Sesión">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                  </a>
+                </div>
+
+                <% if (currentUser?.role === 'ADMIN') { %>
+                  <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Volver a Órdenes</a>
+                  <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Inventario</a>
+                <% } %>
+            </div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">

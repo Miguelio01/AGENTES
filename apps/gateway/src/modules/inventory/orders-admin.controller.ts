@@ -10,6 +10,7 @@ import {
   Res,
   Logger,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -20,8 +21,12 @@ import type { IInventoryProvider } from '@agentes/domain';
 import { ClientsService } from '../clients/clients.service';
 import { OrdersService } from '../orders/orders.service';
 import { LOGO_BASE64 } from '../metrics/logo-base64';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('admin/orders')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdersAdminController {
   private readonly logger = new Logger(OrdersAdminController.name);
 
@@ -36,6 +41,7 @@ export class OrdersAdminController {
 
   @Get()
   @Render('orders')
+  @Roles('ADMIN')
   async getOrdersDashboard() {
     try {
       const rawOrders = await this.prisma.order.findMany({
@@ -90,6 +96,7 @@ export class OrdersAdminController {
 
   @Get('new')
   @Render('create-order')
+  @Roles('ADMIN', 'USER')
   async getCreateOrderPage() {
     try {
       const rawProducts = await this.inventoryProvider.listProducts();
@@ -136,6 +143,7 @@ export class OrdersAdminController {
   }
 
   @Post('api/create')
+  @Roles('ADMIN', 'USER')
   async createManualOrder(@Body() data: any) {
     try {
       this.logger.log(`📝 Creando pedido manual para: ${data.clientName}`);
@@ -233,6 +241,7 @@ export class OrdersAdminController {
   }
 
   @Get('export-xlsx')
+  @Roles('ADMIN')
   async exportToExcel(
     @Res() res: Response,
     @Query('cycleId') cycleId?: string,
@@ -355,6 +364,7 @@ export class OrdersAdminController {
   }
 
   @Get('export-products-xlsx')
+  @Roles('ADMIN')
   async exportProductsSummary(
     @Res() res: Response,
     @Query('cycleId') cycleId?: string,
@@ -551,6 +561,7 @@ export class OrdersAdminController {
   }
 
   @Patch('api/:id/delivery-fee')
+  @Roles('ADMIN')
   async updateDeliveryFee(
     @Param('id') id: string,
     @Body() data: { deliveryFee: number },
@@ -575,6 +586,7 @@ export class OrdersAdminController {
   }
 
   @Patch('api/:id/status')
+  @Roles('ADMIN')
   async updateOrderStatus(
     @Param('id') id: string,
     @Body() data: { status: string },
