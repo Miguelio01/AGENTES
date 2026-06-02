@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { CounterSchema } from '@agentes/infrastructure';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
+import { InvoiceService } from './invoice.service';
 import { OrderSaga } from './sagas/order.saga';
 import { ChannelsModule } from '../channels/channels.module';
 import { SessionsModule } from '../sessions/sessions.module';
@@ -21,8 +22,8 @@ import { AgentsModule } from '../agents/agents.module';
     ClientsModule,
     forwardRef(() => AgentsModule),
   ],
-  providers: [OrdersService, OrderSaga],
+  providers: [OrdersService, OrderSaga, InvoiceService],
   controllers: [OrdersController],
-  exports: [OrdersService],
+  exports: [OrdersService, InvoiceService],
 })
 export class OrdersModule {}

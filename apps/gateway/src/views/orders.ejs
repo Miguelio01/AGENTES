@@ -191,17 +191,31 @@
                                     </td>
                                     <td class="px-6 py-5 text-right font-black text-frescoh-dark text-sm" x-text="formatCurrency(order.total)"></td>
                                     <td class="px-6 py-5 text-center">
-                                        <div x-show="!order.isEditingStatus">
-                                            <span class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:scale-105 transition-all shadow-sm border-2"
-                                                @click="order.isEditingStatus = true"
-                                                :class="{
-                                                    'bg-orange-50 text-orange-700 border-orange-200': order.status === 'pending',
-                                                    'bg-blue-50 text-blue-700 border-blue-200': order.status === 'confirmed',
-                                                    'bg-green-50 text-green-700 border-green-200': order.status === 'delivered',
-                                                    'bg-red-50 text-red-700 border-red-200': order.status === 'cancelled'
-                                                }" x-text="order.status"></span>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <div x-show="!order.isEditingStatus">
+                                                <span class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:scale-105 transition-all shadow-sm border-2"
+                                                    @click="order.isEditingStatus = true"
+                                                    :class="{
+                                                        'bg-orange-50 text-orange-700 border-orange-200': order.status === 'pending',
+                                                        'bg-blue-50 text-blue-700 border-blue-200': order.status === 'confirmed',
+                                                        'bg-green-50 text-green-700 border-green-200': order.status === 'delivered',
+                                                        'bg-red-50 text-red-700 border-red-200': order.status === 'cancelled'
+                                                    }" x-text="order.status"></span>
+                                            </div>
+
+                                            <!-- Botón de Factura -->
+                                            <template x-if="['confirmed', 'delivered'].includes(order.status)">
+                                                <a :href="'/admin/orders/api/' + order.id + '/invoice'" 
+                                                   class="bg-white border border-gray-200 text-gray-500 hover:text-red-500 p-1.5 rounded-lg hover:border-red-200 transition-all shadow-sm" 
+                                                   title="Descargar Factura PDF">
+                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path>
+                                                    </svg>
+                                                </a>
+                                            </template>
                                         </div>
-                                        <div x-show="order.isEditingStatus" class="flex items-center justify-center gap-1">
+                                        
+                                        <div x-show="order.isEditingStatus" class="flex items-center justify-center gap-1 mt-2">
                                             <select x-model="order.newStatus" class="text-[10px] border-2 border-frescoh-dark rounded-lg px-2 py-1.5 focus:ring-0 outline-none bg-white font-black uppercase shadow-sm">
                                                 <option value="pending">Pending</option>
                                                 <option value="confirmed">Confirmed</option>

@@ -20,6 +20,7 @@ import { INVENTORY_PROVIDER_PORT, Order, Client } from '@agentes/domain';
 import type { IInventoryProvider } from '@agentes/domain';
 import { ClientsService } from '../clients/clients.service';
 import { OrdersService } from '../orders/orders.service';
+import { InvoiceService } from '../orders/invoice.service';
 import { LOGO_BASE64 } from '../metrics/logo-base64';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -35,9 +36,28 @@ export class OrdersAdminController {
     private readonly eventEmitter: EventEmitter2,
     private readonly clientsService: ClientsService,
     private readonly ordersService: OrdersService,
+    private readonly invoiceService: InvoiceService,
     @Inject(INVENTORY_PROVIDER_PORT)
     private readonly inventoryProvider: IInventoryProvider,
   ) {}
+
+  @Get('api/:id/invoice')
+  @Roles('ADMIN', 'USER')
+  async downloadInvoice(@Param('id') id: string, @Res() res: Response) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        items: true,
+        client: true,
+      },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: 'Orden no encontrada' });
+    }
+
+    return this.invoiceService.generateInvoice(res, order as any, LOGO_BASE64);
+  }
 
   @Get()
   @Render('orders')
