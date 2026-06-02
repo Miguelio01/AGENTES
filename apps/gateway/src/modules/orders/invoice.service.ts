@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import * as PDFDocument from 'pdfkit';
+const PDFDocument = require('pdfkit');
 import { Response } from 'express';
 import { Order, OrderItem, Client } from '@prisma/client';
 
