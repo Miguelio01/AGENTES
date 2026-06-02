@@ -348,10 +348,23 @@
 
                         const result = await response.json();
                         if (result.status === 'SUCCESS') {
-                            this.showToast('¡Pedido creado con éxito!', 'success');
-                            setTimeout(() => {
-                                window.location.href = '/admin/orders';
-                            }, 1500);
+                            this.showToast('¡Pedido creado con éxito! ✅', 'success');
+                            
+                            // Limpiar el formulario para un nuevo pedido en lugar de redirigir
+                            this.order = {
+                                clientName: '',
+                                clientPhone: '',
+                                clientAddress: '',
+                                clientDocType: '',
+                                clientDocNumber: '',
+                                clientEmail: '',
+                                deliveryFee: <%= deliveryFee %>,
+                                items: []
+                            };
+                            this.clientSearch = '';
+                            this.productSearch = '';
+                            this.isSubmitting = false;
+
                         } else {
                             throw new Error(result.message);
                         }
