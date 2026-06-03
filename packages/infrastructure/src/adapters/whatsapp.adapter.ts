@@ -46,12 +46,17 @@ export class WhatsAppAdapter implements IChannel {
     }
 
     const { state, saveCreds } = authState;
-    const { version } = await fetchLatestBaileysVersion().catch(() => ({ 
-      version: [2, 3000, 1017531287] as [number, number, number]
+    const { version, isLatest } = await fetchLatestBaileysVersion().catch(() => ({ 
+      version: [2, 3000, 1017531287] as [number, number, number],
+      isLatest: false
     }));
+
+    console.log(`📡 [WhatsApp] Baileys Version: ${version.join('.')} (Latest: ${isLatest})`);
 
     this.sock = makeWASocket({
       version,
+      printQRInTerminal: false, // Lo manejamos nosotros
+      browser: ['FRESCOH!', 'Chrome', '121.0.6167.140'],
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, { 
@@ -80,7 +85,7 @@ export class WhatsAppAdapter implements IChannel {
     this.sock.ev.on('creds.update', saveCreds);
 
     this.sock.ev.on('messages.update', async (updates: any) => {
-      // ... (keep existing poll logic)
+      // ... (rest of poll updates logic)
     });
 
     this.sock.ev.on('connection.update', (update: Partial<ConnectionState>) => {
@@ -95,14 +100,16 @@ export class WhatsAppAdapter implements IChannel {
       if (connection === 'close') {
         const error = (lastDisconnect?.error as Boom);
         const statusCode = error?.output?.statusCode;
-        console.log(`❌ [WhatsApp] Conexión cerrada. Status: ${statusCode}`, error?.message);
+        const reason = error?.message || 'Unknown reason';
+        console.log(`❌ [WhatsApp] Conexión cerrada. Status: ${statusCode}, Razón: ${reason}`);
         
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        
         if (shouldReconnect) {
-          console.log('🔄 [WhatsApp] Intentando reconectar...');
-          this.start();
+          console.log('🔄 [WhatsApp] Intentando reconectar en 5 segundos...');
+          setTimeout(() => this.start(), 5000);
         } else {
-          console.log('🚪 [WhatsApp] Sesión cerrada permanentemente.');
+          console.log('🚪 [WhatsApp] Sesión cerrada permanentemente (Logged Out).');
         }
       } else if (connection === 'open') {
         console.log('✅ WhatsApp connected successfully');
