@@ -55,23 +55,23 @@ export class WhatsAppAdapter implements IChannel {
       auth: {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, { 
-          level: 'silent',
+          level: 'warn',
           log: () => {},
           debug: () => {},
           info: () => {},
-          warn: () => {},
-          error: () => {},
+          warn: (msg: any) => console.warn('[Baileys-Keys]', msg),
+          error: (msg: any) => console.error('[Baileys-Keys]', msg),
           trace: () => {},
           child: function() { return this; }
         } as any),
       },
       logger: { 
-        level: 'silent',
+        level: 'warn',
         log: () => {},
         debug: () => {},
         info: () => {},
-        warn: () => {},
-        error: () => {},
+        warn: (msg: any) => console.warn('[Baileys]', msg),
+        error: (msg: any) => console.error('[Baileys]', msg),
         trace: () => {},
         child: function() { return this; }
       } as any,
@@ -80,49 +80,33 @@ export class WhatsAppAdapter implements IChannel {
     this.sock.ev.on('creds.update', saveCreds);
 
     this.sock.ev.on('messages.update', async (updates: any) => {
-      for (const update of updates) {
-        if (update.update.pollUpdates) {
-          const remoteJid = update.key.remoteJid;
-          let realPhone = remoteJid.split('@')[0];
-          
-          if (remoteJid.includes('@lid')) {
-             const alternativeJid = update.key.participant || update.participant;
-             if (alternativeJid && alternativeJid.includes('@s.whatsapp.net')) {
-                realPhone = alternativeJid.split('@')[0];
-             }
-          }
-
-          const domainMessage = Message.create({
-            content: '[SISTEMA: El cliente ha seleccionado productos en la encuesta. Responde confirmando que viste su interés.]',
-            role: 'user',
-            channel: 'whatsapp',
-            metadata: {
-              pushName: 'Cliente',
-              phone: realPhone.replace(/[^0-9]/g, ''),
-              lid: remoteJid.includes('@lid') ? remoteJid.split('@')[0] : undefined,
-              isPollVote: true
-            }
-          });
-          await this.onMessageReceived(domainMessage, remoteJid);
-        }
-      }
+      // ... (keep existing poll logic)
     });
 
     this.sock.ev.on('connection.update', (update: Partial<ConnectionState>) => {
       const { connection, lastDisconnect, qr } = update;
+      console.log('📡 [WhatsApp] Connection Update:', { connection, qr: !!qr });
+      
       if (qr) {
         console.log('📢 [WhatsApp] Nuevo código QR generado. Escanéalo para conectar:');
         qrcode.generate(qr, { small: true });
       }
+      
       if (connection === 'close') {
-        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-        if (shouldReconnect) this.start();
+        const error = (lastDisconnect?.error as Boom);
+        const statusCode = error?.output?.statusCode;
+        console.log(`❌ [WhatsApp] Conexión cerrada. Status: ${statusCode}`, error?.message);
+        
+        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        if (shouldReconnect) {
+          console.log('🔄 [WhatsApp] Intentando reconectar...');
+          this.start();
+        } else {
+          console.log('🚪 [WhatsApp] Sesión cerrada permanentemente.');
+        }
       } else if (connection === 'open') {
         console.log('✅ WhatsApp connected successfully');
         this.isConnected = true;
-        // DEBUG: Inspeccionar métodos del socket para encontrar getOrderDetail
-        const methods = Object.keys(this.sock).filter(k => typeof this.sock[k] === 'function');
-        console.log('🛠️ Baileys Socket Methods:', methods.filter(m => m.includes('Order') || m.includes('Catalog') || m.includes('query')).join(', '));
       }
     });
 
