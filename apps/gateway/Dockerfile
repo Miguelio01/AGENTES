@@ -12,7 +12,7 @@ COPY packages/domain/package.json ./packages/domain/
 COPY packages/infrastructure/package.json ./packages/infrastructure/
 
 # Instalar dependencias
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --prod=false
 
 # Copiar código fuente
 COPY apps/gateway ./apps/gateway
