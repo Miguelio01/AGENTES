@@ -1,0 +1,17 @@
+<%
+  // Props: index, item, variant ('light'|'dark')
+  const isDark = typeof variant !== 'undefined' && variant === 'dark';
+  const wrapperClass = isDark ? 'qty-wrapper-dark' : 'qty-wrapper';
+  const btnClass = isDark ? 'qty-btn-dark' : 'qty-btn-minus'; // Simplification for demo
+  const btnPlusClass = isDark ? 'qty-btn-dark' : 'qty-btn-plus';
+  const valueClass = isDark ? 'qty-value-dark' : 'qty-value';
+%>
+<div class="<%= wrapperClass %>">
+    <button @click="updateItemQuantity(<%= index %>, -1)" class="<%= btnClass %>">
+        <%- include('icon', { name: 'minus' }) %>
+    </button>
+    <span class="<%= valueClass %>" x-text="<%= item %>.quantity"></span>
+    <button @click="updateItemQuantity(<%= index %>, 1)" class="<%= btnPlusClass %>">
+        <%- include('icon', { name: 'plus' }) %>
+    </button>
+</div>

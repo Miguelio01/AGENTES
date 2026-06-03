@@ -39,17 +39,11 @@
                   </a>
                 </div>
 
-                <a href="/admin/orders/new" class="btn-primary">
-                    <svg class="w-3.5 h-3.5 text-frescoh-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M12 6v12m6-6H6"></path></svg> Nueva Orden
-                </a>
+                <%- include('components/button', { variant: 'primary', icon: 'plus', text: 'Nueva Orden', href: '/admin/orders/new' }) %>
                 
                 <% if (currentUser?.role === 'ADMIN') { %>
-                  <a :href="'/admin/orders/export-products-xlsx?cycleId=' + selectedCycleId" class="bg-white border border-orange-200 text-orange-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-orange-50 transition text-xs flex items-center gap-2 uppercase">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg> Despacho
-                  </a>
-                  <a :href="'/admin/orders/export-xlsx?cycleId=' + selectedCycleId" class="bg-white border border-blue-200 text-blue-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-50 transition text-xs flex items-center gap-2 uppercase">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Reporte
-                  </a>
+                  <%- include('components/button', { variant: 'secondary', icon: 'box', text: 'Despacho', href: "'/admin/orders/export-products-xlsx?cycleId=' + selectedCycleId", customClass: 'text-orange-600 border-orange-200 hover:bg-orange-50' }) %>
+                  <%- include('components/button', { variant: 'secondary', icon: 'chart', text: 'Reporte', href: "'/admin/orders/export-xlsx?cycleId=' + selectedCycleId", customClass: 'text-blue-600 border-blue-200 hover:bg-blue-50' }) %>
                   <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Inventario</a>
                   <a href="/admin/clients" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Clientes</a>
                   <% } %>
@@ -105,11 +99,8 @@
                             </select>
                         </div>
                     </div>
-                    <div class="relative w-full md:w-80">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        </div>
-                        <input type="text" x-model="search" placeholder="Buscar por ID, Cliente..." class="border border-gray-300 rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full bg-white shadow-inner">
+                    <div class="w-full md:w-80">
+                        <%- include('components/input-search', { model: 'search', placeholder: 'Buscar por ID, Cliente...' }) %>
                     </div>
                 </div>
                 

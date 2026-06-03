@@ -1,0 +1,22 @@
+<%
+  // Props: variant ('primary', 'secondary', 'icon', 'danger', 'light'), text, icon, href, action, customClass
+  const btnClass = variant === 'primary' ? 'btn-primary' :
+                   variant === 'secondary' ? 'btn-secondary' :
+                   variant === 'icon' ? 'btn-icon' : '';
+  const finalClass = `${btnClass} ${typeof customClass !== 'undefined' ? customClass : ''}`.trim();
+%>
+<% if (typeof href !== 'undefined') { %>
+  <a href="<%= href %>" class="<%= finalClass %>">
+    <% if (typeof icon !== 'undefined') { %>
+      <%- include('icon', { name: icon, className: (variant === 'primary' ? 'w-3.5 h-3.5 text-frescoh-lime' : 'w-3.5 h-3.5'), strokeWidth: '4' }) %>
+    <% } %>
+    <% if (typeof text !== 'undefined') { %><%= text %><% } %>
+  </a>
+<% } else { %>
+  <button <%= typeof action !== 'undefined' ? `x-on:click="${action}"` : '' %> class="<%= finalClass %>">
+    <% if (typeof icon !== 'undefined') { %>
+      <%- include('icon', { name: icon, className: (variant === 'primary' ? 'w-3.5 h-3.5 text-frescoh-lime' : 'w-3.5 h-3.5'), strokeWidth: '4' }) %>
+    <% } %>
+    <% if (typeof text !== 'undefined') { %><%= text %><% } %>
+  </button>
+<% } %>

@@ -1,0 +1,14 @@
+<%
+  // Props: model, placeholder, action, keyup
+%>
+<div class="search-wrapper">
+    <div class="search-icon">
+        <%- include('icon', { name: 'search' }) %>
+    </div>
+    <input type="text" 
+           x-model="<%= model %>" 
+           <% if (typeof keyup !== 'undefined') { %>@keyup.enter="<%= keyup %>"<% } %>
+           <% if (typeof action !== 'undefined') { %>@input="<%= action %>"<% } %>
+           placeholder="<%= typeof placeholder !== 'undefined' ? placeholder : 'Buscar...' %>" 
+           class="input-search">
+</div>
