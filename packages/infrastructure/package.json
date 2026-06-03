@@ -19,7 +19,7 @@
     "@agentes/domain": "workspace:*",
     "@google/generative-ai": "^0.24.1",
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "7.0.0-rc.9",
+    "@whiskeysockets/baileys": "7.0.0-rc.13",
     "axios": "^1.15.2",
     "googleapis": "^171.4.0",
     "mongodb": "^7.2.0",
