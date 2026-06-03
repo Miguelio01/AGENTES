@@ -47,20 +47,17 @@ export class WhatsAppAdapter implements IChannel {
 
     const { state, saveCreds } = authState;
     const versionResult = await fetchLatestBaileysVersion().catch(() => ({ 
-      version: undefined,
+      version: [2, 3000, 1017531287] as [number, number, number],
       isLatest: false
     }));
     
     const version = versionResult.version;
-    if (version) {
-      console.log(`📡 [WhatsApp] Baileys Version: ${version.join('.')} (Latest: ${versionResult.isLatest})`);
-    } else {
-      console.log(`📡 [WhatsApp] Baileys Version: Usando fallback interno de la librería`);
-    }
+    console.log(`📡 [WhatsApp] Baileys Version: ${version.join('.')} (Latest: ${versionResult.isLatest})`);
+    console.log(`📡 [WhatsApp] Creds initialized: ${!!state.creds}, ID: ${state.creds?.me?.id || 'New Session'}`);
 
     this.sock = makeWASocket({
-      ...(version ? { version } : {}),
-      printQRInTerminal: false, // Lo manejamos nosotros
+      version,
+      printQRInTerminal: false,
       browser: ['FRESCOH!', 'Chrome', '121.0.6167.140'],
       auth: {
         creds: state.creds,
