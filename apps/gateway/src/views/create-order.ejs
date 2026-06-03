@@ -38,10 +38,10 @@
             </div>
         </header>
 
-        <div class="flex flex-col lg:grid lg:grid-cols-3 gap-6 md:gap-8">
+        <div class="flex flex-col md:grid md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             
             <!-- Columna Izquierda: Cliente y Productos -->
-            <div class="lg:col-span-2 space-y-6 order-2 lg:order-1">
+            <div class="md:col-span-1 lg:col-span-2 space-y-6 order-2 md:order-1">
                 
                 <!-- Sección Cliente -->
                 <div class="card p-4 md:p-6 border-l-4 border-l-frescoh-dark">
@@ -79,7 +79,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Nombre Completo</label>
                                 <input type="text" x-model="order.clientName" class="input-base" placeholder="Nombre del cliente">
@@ -90,23 +90,23 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo Documento</label>
+                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div class="col-span-1">
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo Doc.</label>
                                 <select x-model="order.clientDocType" class="input-base">
-                                    <option value="">Seleccionar...</option>
+                                    <option value="">...</option>
                                     <option value="CC">CC</option>
                                     <option value="NIT">NIT</option>
                                     <option value="CE">CE</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="col-span-1">
                                 <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Número</label>
                                 <input type="text" x-model="order.clientDocNumber" class="input-base" placeholder="Documento">
                             </div>
-                            <div>
-                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Email</label>
-                                <input type="email" x-model="order.clientEmail" placeholder="opcional@correo.com" class="input-base">
+                            <div class="col-span-2 lg:col-span-1">
+                                <label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Email (Opcional)</label>
+                                <input type="email" x-model="order.clientEmail" placeholder="correo@ejemplo.com" class="input-base">
                             </div>
                         </div>
 
@@ -119,20 +119,23 @@
 
                 <!-- Selección de Productos -->
                 <div class="card p-4 md:p-6 border-l-4 border-l-frescoh-lime">
-                    <h3 class="text-xs md:text-sm font-black text-frescoh-dark uppercase tracking-wider mb-4 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Productos Disponibles
-                    </h3>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xs md:text-sm font-black text-frescoh-dark uppercase tracking-wider flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Productos
+                        </h3>
+                        <span class="text-[9px] font-black bg-frescoh-light text-frescoh-dark px-2 py-0.5 rounded-full" x-text="`${filteredProducts.length} items` font-black"></span>
+                    </div>
 
                     <div class="mb-4 md:mb-6">
                         <div class="search-wrapper">
                             <span class="search-icon">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                             </span>
-                            <input type="text" x-model="productSearch" placeholder="Filtrar por nombre..." class="input-search">
+                            <input type="text" x-model="productSearch" placeholder="Buscar producto..." class="input-search">
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4 max-h-[400px] md:max-h-96 overflow-y-auto pr-1 md:pr-2 scrollbar-hide">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 max-h-[500px] md:max-h-[600px] lg:max-h-[500px] overflow-y-auto pr-1 md:pr-2 scrollbar-hide">
                         <template x-for="product in filteredProducts" :key="product.id">
                             <div class="border border-gray-100 bg-gray-50/50 rounded-2xl p-4 flex justify-between items-center hover:border-frescoh-lime hover:bg-white transition-all group cursor-pointer active:scale-95"
                                  @click="addItem(product)">
@@ -153,33 +156,33 @@
                 </div>
             </div>
 
-            <!-- Columna Derecha / Sticky: Resumen y Totales -->
-            <div class="order-1 lg:order-2">
-                <div class="card p-5 md:p-6 sticky top-4 md:top-8 bg-frescoh-dark text-white border-none shadow-2xl overflow-hidden">
+            <!-- Columna Derecha: Carrito y Totales -->
+            <div class="order-1 md:order-2 md:col-span-1">
+                <div class="card p-5 md:p-6 sticky top-4 md:top-8 bg-frescoh-dark text-white border-none shadow-2xl overflow-hidden min-h-[400px] flex flex-col">
                     <!-- Efecto de fondo decorativo -->
                     <div class="absolute -top-10 -right-10 w-32 h-32 bg-frescoh-lime/10 rounded-full blur-3xl"></div>
                     
                     <h3 class="text-xs md:text-sm font-black text-frescoh-lime uppercase tracking-widest mb-6 flex items-center gap-2 relative z-10">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Carrito de Compra
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Resumen del Pedido
                     </h3>
 
-                    <div class="space-y-4 mb-8 max-h-[30vh] overflow-y-auto pr-1 scrollbar-hide relative z-10">
+                    <div class="space-y-4 mb-8 overflow-y-auto pr-1 scrollbar-hide relative z-10 flex-grow max-h-[300px] md:max-h-none">
                         <template x-for="(item, index) in order.items" :key="index">
                             <div class="flex flex-col gap-2 border-b border-white/10 pb-4">
                                 <div class="flex justify-between items-start">
-                                    <p class="text-sm font-black leading-tight flex-1" x-text="item.name"></p>
-                                    <p class="text-xs font-mono font-bold text-frescoh-lime" x-text="formatCurrency(item.price * item.quantity)"></p>
+                                    <p class="text-sm font-black leading-tight flex-1 pr-2" x-text="item.name"></p>
+                                    <p class="text-xs font-mono font-bold text-frescoh-lime whitespace-nowrap" x-text="formatCurrency(item.price * item.quantity)"></p>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <%- include('components/qty-selector', { index: 'index', item: 'item', variant: 'dark' }) %>
-                                    <button @click="removeItem(index)" class="text-[9px] bg-red-500/20 text-red-300 px-2 py-1 rounded-lg hover:bg-red-500 hover:text-white transition-all uppercase font-black">Eliminar</button>
+                                    <button @click="removeItem(index)" class="text-[9px] bg-red-500/20 text-red-300 px-2 py-1 rounded-lg hover:bg-red-500 hover:text-white transition-all uppercase font-black">Quitar</button>
                                 </div>
                             </div>
                         </template>
                         
                         <div x-show="order.items.length === 0" class="text-white/30 italic text-sm text-center py-10 flex flex-col items-center gap-2">
                             <svg class="w-8 h-8 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 11-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-                            El carrito está vacío
+                            Carrito vacío
                         </div>
                     </div>
 
@@ -189,7 +192,7 @@
                             <span class="font-mono font-bold" x-text="formatCurrency(subtotal)"></span>
                         </div>
                         <div class="flex justify-between items-center text-xs">
-                            <span class="text-white/50 uppercase font-bold tracking-tighter">Domicilio</span>
+                            <span class="text-white/50 uppercase font-bold tracking-tighter">Envío</span>
                             <div class="flex items-center gap-2">
                                 <span class="text-white/30 text-[10px]">$</span>
                                 <input type="number" 
@@ -198,26 +201,26 @@
                             </div>
                         </div>
                         <div class="flex justify-between items-center pt-5 border-t border-white/30">
-                            <span class="font-black text-frescoh-lime text-xs uppercase tracking-widest">Total Final</span>
-                            <span class="text-3xl font-black font-mono text-frescoh-lime" x-text="formatCurrency(total)"></span>
+                            <span class="font-black text-frescoh-lime text-[10px] uppercase tracking-widest">Total</span>
+                            <span class="text-2xl md:text-3xl font-black font-mono text-frescoh-lime" x-text="formatCurrency(total)"></span>
                         </div>
                     </div>
 
-                    <!-- Botón Flotante para Móvil y Normal para Desktop -->
-                    <div class="fixed bottom-4 left-4 right-4 z-50 lg:static lg:mt-8">
+                    <!-- Botón de Acción Responsivo -->
+                    <div class="fixed bottom-4 left-4 right-4 z-50 md:static md:mt-8 md:z-auto">
                         <button @click="submitOrder()" 
                                 :disabled="isSubmitting || order.items.length === 0 || !order.clientName || !order.clientPhone"
                                 class="w-full bg-frescoh-lime text-frescoh-dark font-black py-4 md:py-5 rounded-2xl shadow-[0_10px_40px_rgba(181,245,67,0.3)] hover:shadow-frescoh-lime/50 active:scale-95 transition-all disabled:opacity-50 disabled:grayscale uppercase tracking-widest flex justify-center items-center gap-3 text-sm md:text-base border-2 border-frescoh-lime/50">
                             <span x-show="!isSubmitting" class="flex items-center gap-3">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                                Enviar Pedido
+                                <span class="md:hidden">Confirmar</span>
+                                <span class="hidden md:inline">Enviar Pedido</span>
                             </span>
                             <span x-show="isSubmitting" class="flex items-center gap-3">
                                 <svg class="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Procesando...
                             </span>
                         </button>
                     </div>
