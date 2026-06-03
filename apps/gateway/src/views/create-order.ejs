@@ -1,32 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              frescoh: {
-                dark: '#005035',
-                lime: '#B5F543',
-                light: '#E6F4EA'
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
-        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
-        [x-cloak] { display: none !important; }
-    </style>
+    <%- include('partials/head') %>
 </head>
 <body class="p-4 md:p-8" x-data="createOrderApp()">
     
@@ -71,7 +46,7 @@
                 <!-- Sección Cliente -->
                 <div class="card p-6 border-l-4 border-l-frescoh-dark">
                     <h3 class="text-sm font-black text-frescoh-dark uppercase tracking-wider mb-4 flex items-center gap-2">
-                        👤 Información del Cliente
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> Información del Cliente
                     </h3>
                     
                     <div class="space-y-4">
@@ -138,7 +113,7 @@
                 <!-- Selección de Productos -->
                 <div class="card p-6 border-l-4 border-l-frescoh-lime">
                     <h3 class="text-sm font-black text-frescoh-dark uppercase tracking-wider mb-4 flex items-center gap-2">
-                        🛒 Selección de Productos
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Selección de Productos
                     </h3>
 
                     <div class="mb-6 relative">
@@ -157,8 +132,8 @@
                                     <p class="text-[10px] text-gray-500 font-mono" x-text="formatCurrency(product.price)"></p>
                                     <p class="text-[9px] font-bold" :class="product.stock > 0 ? 'text-green-600' : 'text-red-500'" x-text="`Stock: ${product.stock}`"></p>
                                 </div>
-                                <div class="bg-frescoh-light text-frescoh-dark p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                                    ➕
+                                <div class="bg-frescoh-dark text-frescoh-lime p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 6v12m6-6H6"></path></svg>
                                 </div>
                             </div>
                         </template>
@@ -170,7 +145,7 @@
             <div class="space-y-6">
                 <div class="card p-6 sticky top-8 bg-frescoh-dark text-white border-none shadow-2xl">
                     <h3 class="text-sm font-black text-frescoh-lime uppercase tracking-wider mb-6 flex items-center gap-2">
-                        📄 Resumen del Pedido
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Resumen del Pedido
                     </h3>
 
                     <div class="space-y-4 mb-8 min-h-[100px]">
@@ -178,10 +153,14 @@
                             <div class="flex justify-between items-start border-b border-white/10 pb-2">
                                 <div class="flex-1">
                                     <p class="text-sm font-bold" x-text="item.name"></p>
-                                    <div class="flex items-center gap-2 mt-1">
-                                        <button @click="updateItemQuantity(index, -1)" class="text-frescoh-lime hover:text-white">➖</button>
-                                        <span class="font-mono text-xs w-6 text-center" x-text="item.quantity"></span>
-                                        <button @click="updateItemQuantity(index, 1)" class="text-frescoh-lime hover:text-white">➕</button>
+                                    <div class="qty-wrapper-dark mt-2">
+                                        <button @click="updateItemQuantity(index, -1)" class="qty-btn-dark">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M18 12H6"></path></svg>
+                                        </button>
+                                        <span class="qty-value-dark" x-text="item.quantity"></span>
+                                        <button @click="updateItemQuantity(index, 1)" class="qty-btn-dark">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M12 6v12m6-6H6"></path></svg>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -219,7 +198,10 @@
                     <button @click="submitOrder()" 
                             :disabled="isSubmitting || order.items.length === 0 || !order.clientName || !order.clientPhone"
                             class="w-full mt-8 bg-frescoh-lime text-frescoh-dark font-black py-4 rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-50 disabled:grayscale uppercase tracking-widest flex justify-center items-center gap-2">
-                        <span x-show="!isSubmitting">Confirmar Pedido</span>
+                        <span x-show="!isSubmitting" class="flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            Confirmar Pedido
+                        </span>
                         <span x-show="isSubmitting" class="flex items-center gap-2">
                             <svg class="animate-spin h-5 w-5 text-frescoh-dark" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -348,7 +330,7 @@
 
                         const result = await response.json();
                         if (result.status === 'SUCCESS') {
-                            this.showToast('¡Pedido creado con éxito! ✅', 'success');
+                            this.showToast('¡Pedido creado con éxito!', 'success');
                             
                             // Limpiar el formulario para un nuevo pedido en lugar de redirigir
                             this.order = {

@@ -5,121 +5,185 @@ import { Order, OrderItem, Client } from '@prisma/client';
 
 @Injectable()
 export class InvoiceService {
+  private readonly colors = {
+    dark: '#005035',
+    lime: '#B5F543',
+    gray: '#4B5563',
+    lightGray: '#F3F4F6',
+    border: '#E5E7EB',
+  };
+
   async generateInvoice(
     res: Response,
     order: Order & { items: OrderItem[]; client: Client },
     logoBase64?: string,
   ) {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    // Media Carta (5.5" x 8.5") = 396 x 612 puntos
+    const doc = new PDFDocument({ margin: 0, size: [396, 612] });
 
-    // Configurar encabezados de respuesta para el PDF
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename=Factura_${order.id}.pdf`,
+      `attachment; filename=Recibo_Frescoh_${order.id.slice(-6)}.pdf`,
     );
 
     doc.pipe(res);
 
-    // --- ENCABEZADO ---
+    // --- FONDO Y CABECERA ---
+    // Barra lateral de acento (más delgada para media carta)
+    doc.rect(0, 0, 10, 612).fill(this.colors.dark);
+
+    // Bloque de cabecera derecho (ajustado para 396px de ancho)
+    doc.rect(260, 0, 136, 100).fill(this.colors.dark);
+
+    // Logo (escalado para media carta)
     if (logoBase64) {
       try {
         const logoBuffer = Buffer.from(logoBase64, 'base64');
-        doc.image(logoBuffer, 50, 45, { width: 60 });
+        doc.image(logoBuffer, 30, 30, { width: 50 });
       } catch (e) {
         console.error('Error cargando logo en PDF:', e.message);
       }
     }
 
+    // Nombre Empresa
     doc
-      .fillColor('#444444')
-      .fontSize(20)
-      .text('FRESCOH! AGENTES', 120, 50, { align: 'left' })
-      .fontSize(10)
-      .text('FRESCOH! PRODUCTOS DEL CAMPO', 120, 75)
-      .text('frescoh.col@gmail.com', 120, 90)
-      .moveDown();
-
-    doc
-      .fontSize(12)
-      .text(`Factura / Soporte #: ${order.id.slice(0, 8).toUpperCase()}`, 400, 50, { align: 'right' })
-      .fontSize(10)
-      .text(`Fecha: ${new Date(order.createdAt).toLocaleDateString()}`, 400, 65, { align: 'right' })
-      .text(`Estado: ${order.status.toUpperCase()}`, 400, 80, { align: 'right' });
-
-    doc.moveTo(50, 115).lineTo(550, 115).stroke();
-
-    // --- INFORMACIÓN DEL CLIENTE ---
-    doc
-      .fontSize(12)
+      .fillColor(this.colors.dark)
       .font('Helvetica-Bold')
-      .text('CLIENTE', 50, 130)
+      .fontSize(18)
+      .text('FRESCOH!', 95, 35)
+      .fontSize(8)
       .font('Helvetica')
-      .fontSize(10)
-      .text(`Nombre: ${order.client.fullName || order.client.name}`, 50, 150)
-      .text(`Teléfono: ${order.client.phone}`, 50, 165)
-      .text(`Documento: ${order.client.documentType || 'CC'} ${order.client.documentNumber || '---'}`, 50, 180)
-      .text(`Dirección: ${order.client.address || 'Pendiente'}`, 50, 195)
-      .text(`Email: ${order.client.email || '---'}`, 50, 210);
+      .text('PRODUCTOS DEL CAMPO', 95, 55)
+      .text('frescoh.col@gmail.com', 95, 65);
 
-    // --- TABLA DE PRODUCTOS ---
-    let tableTop = 250;
-
+    // Datos Factura (en el bloque oscuro, sin superposición)
     doc
+      .fillColor('#FFFFFF')
       .font('Helvetica-Bold')
-      .fontSize(10)
-      .text('Producto', 50, tableTop)
-      .text('Cant.', 280, tableTop, { width: 50, align: 'center' })
-      .text('Precio Unit.', 330, tableTop, { width: 90, align: 'right' })
-      .text('Total', 420, tableTop, { width: 100, align: 'right' });
+      .fontSize(9)
+      .text('RECIBO DE VENTA', 275, 30)
+      .fontSize(16)
+      .text(`#${order.id.slice(-6).toUpperCase()}`, 275, 45)
+      .fontSize(8)
+      .font('Helvetica')
+      .text(`FECHA: ${new Date(order.createdAt).toLocaleDateString('es-CO')}`, 275, 75);
 
-    doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+    // --- SECCIÓN CLIENTE (SIMPLIFICADA) ---
+    const clientY = 125;
+    doc
+      .fillColor(this.colors.gray)
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .text('CLIENTE:', 30, clientY)
+      .fillColor('#000000')
+      .fontSize(11)
+      .text(order.client.fullName || order.client.name, 30, clientY + 12);
+    
+    let currentY = clientY + 28;
+    
+    doc
+      .fillColor(this.colors.gray)
+      .font('Helvetica')
+      .fontSize(9)
+      .text(`TELÉFONO: ${order.client.phone}`, 30, currentY);
+    
+    currentY += 12;
 
-    let i = 0;
+    if (order.client.documentNumber) {
+      doc.text(`DOC: ${order.client.documentType || 'CC'} ${order.client.documentNumber}`, 30, currentY);
+      currentY += 12;
+    }
+
+    // Estado del Pedido (Badge compacto)
+    const statusColor = order.status === 'delivered' ? '#10B981' : '#F59E0B';
+    doc
+      .rect(275, clientY + 5, 100, 20)
+      .fill(statusColor);
+    
+    doc
+      .fillColor('#FFFFFF')
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .text(order.status.toUpperCase(), 275, clientY + 11, { width: 100, align: 'center' });
+
+    // --- TABLA DE PRODUCTOS (AJUSTADA) ---
+    const tableTop = 200;
+    
+    // Encabezado Tabla
+    doc.rect(30, tableTop, 336, 20).fill(this.colors.lightGray);
+    doc
+      .fillColor(this.colors.dark)
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .text('DESCRIPCIÓN', 40, tableTop + 6)
+      .text('CANT', 190, tableTop + 6, { width: 30, align: 'center' })
+      .text('UNITARIO', 230, tableTop + 6, { width: 60, align: 'right' })
+      .text('TOTAL', 300, tableTop + 6, { width: 60, align: 'right' });
+
+    let y = tableTop + 20;
     order.items.forEach((item) => {
-      const y = tableTop + 30 + i * 25;
+      doc.moveTo(30, y).lineTo(366, y).strokeColor(this.colors.border).lineWidth(0.5).stroke();
+      
       doc
+        .fillColor('#000000')
         .font('Helvetica')
-        .fontSize(10)
-        .text(item.name, 50, y)
-        .text(item.quantity.toString(), 280, y, { width: 50, align: 'center' })
-        .text(this.formatCurrency(item.price), 330, y, { width: 90, align: 'right' })
-        .text(this.formatCurrency(item.price * item.quantity), 420, y, { width: 100, align: 'right' });
-      i++;
+        .fontSize(9)
+        .text(item.name, 40, y + 8, { width: 140, height: 20, ellipsis: true })
+        .text(item.quantity.toString(), 190, y + 8, { width: 30, align: 'center' })
+        .text(this.formatCurrency(item.price), 230, y + 8, { width: 60, align: 'right' })
+        .text(this.formatCurrency(item.price * item.quantity), 300, y + 8, { width: 60, align: 'right' });
+      
+      y += 25;
     });
 
-    // --- TOTALES ---
+    // --- SECCIÓN TOTALES (COMPACTA) ---
+    const totalsY = Math.max(y + 15, 480);
     const subtotal = order.total - order.deliveryFee;
-    const totalsY = tableTop + 50 + i * 25;
 
-    doc.moveTo(330, totalsY).lineTo(550, totalsY).stroke();
+    doc.rect(230, totalsY, 136, 80).fill(this.colors.lightGray);
 
     doc
-      .font('Helvetica-Bold')
-      .text('Subtotal:', 330, totalsY + 10, { width: 90, align: 'right' })
+      .fillColor(this.colors.gray)
       .font('Helvetica')
-      .text(this.formatCurrency(subtotal), 420, totalsY + 10, { width: 100, align: 'right' })
+      .fontSize(9)
+      .text('SUBTOTAL', 240, totalsY + 12)
+      .text(this.formatCurrency(subtotal), 300, totalsY + 12, { width: 60, align: 'right' })
       
-      .font('Helvetica-Bold')
-      .text('Domicilio:', 330, totalsY + 25, { width: 90, align: 'right' })
-      .font('Helvetica')
-      .text(this.formatCurrency(order.deliveryFee), 420, totalsY + 25, { width: 100, align: 'right' })
-      
-      .fontSize(14)
-      .fillColor('#005035')
-      .font('Helvetica-Bold')
-      .text('TOTAL A PAGAR:', 330, totalsY + 45, { width: 90, align: 'right' })
-      .text(this.formatCurrency(order.total), 420, totalsY + 45, { width: 100, align: 'right' });
+      .text('DOMICILIO', 240, totalsY + 28)
+      .text(this.formatCurrency(order.deliveryFee), 300, totalsY + 28, { width: 60, align: 'right' });
 
-    // --- PIE DE PÁGINA ---
+    doc
+      .rect(230, totalsY + 45, 136, 35)
+      .fill(this.colors.dark);
+
+    doc
+      .fillColor(this.colors.lime)
+      .font('Helvetica-Bold')
+      .fontSize(10)
+      .text('TOTAL', 240, totalsY + 58)
+      .fontSize(11)
+      .text(this.formatCurrency(order.total), 300, totalsY + 57, { width: 60, align: 'right' });
+
+    // --- NOTAS Y PIE ---
+    doc
+      .fillColor(this.colors.gray)
+      .font('Helvetica-Bold')
+      .fontSize(8)
+      .text('GRACIAS POR TU COMPRA', 30, totalsY + 12)
+      .font('Helvetica')
+      .fontSize(7)
+      .text('Tu apoyo fortalece el campo.', 30, totalsY + 22, { width: 180 })
+      .text('FRESCOH! - AGENTES', 30, totalsY + 45);
+
     doc
       .fillColor('#999999')
-      .fontSize(8)
+      .fontSize(6)
       .text(
-        'Este documento es un soporte de venta generado automáticamente por el sistema de AGENTES de FRESCOH!. No constituye una factura electrónica de venta según normatividad DIAN a menos que se indique lo contrario.',
-        50,
-        750,
-        { align: 'center', width: 500 },
+        'Soporte digital generado por J.A.R.V.I.S. para FRESCOH!',
+        0,
+        590,
+        { align: 'center', width: 396 },
       );
 
     doc.end();

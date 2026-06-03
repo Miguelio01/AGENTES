@@ -1,0 +1,104 @@
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= typeof title !== 'undefined' ? title : 'FRESCOH! Agentes' %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              frescoh: {
+                dark: '#005035',
+                lime: '#B5F543',
+                light: '#E6F4EA'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style type="text/tailwindcss">
+        @layer components {
+            /* =========================================
+               SUPERFICIES Y CONTENEDORES
+               ========================================= */
+            .card {
+                @apply bg-white rounded-2xl border border-gray-200 shadow-sm;
+            }
+            .frescoh-gradient {
+                background: linear-gradient(135deg, #005035 0%, #003622 100%);
+            }
+            
+            /* =========================================
+               BOTONES UNIFICADOS
+               ========================================= */
+            /* Botón Principal (Ej: Nuevo Pedido, Confirmar) */
+            .btn-primary {
+                @apply bg-frescoh-dark text-frescoh-lime px-4 py-2.5 rounded-xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer;
+            }
+            
+            /* Botón Secundario / Acción Rápida (Ej: Exportar, Cancelar) */
+            .btn-secondary {
+                @apply bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-xl font-bold shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-all text-xs flex items-center justify-center gap-2 uppercase tracking-wide cursor-pointer;
+            }
+            
+            /* Botón de Icono (Ej: Editar, Cerrar) */
+            .btn-icon {
+                @apply bg-white border border-gray-200 text-frescoh-dark p-2 rounded-xl shadow-sm hover:bg-frescoh-dark hover:text-white transition-all flex items-center justify-center cursor-pointer;
+            }
+
+            /* =========================================
+               INPUTS Y BUSCADORES UNIFICADOS
+               ========================================= */
+            /* Input Base (Text, Select, Number) */
+            .input-base {
+                @apply w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-frescoh-dark focus:border-frescoh-dark outline-none bg-gray-50 shadow-inner transition-all font-medium text-gray-800 placeholder-gray-400;
+            }
+            
+            /* Wrapper de Buscador (Lupa integrada) */
+            .search-wrapper {
+                @apply relative w-full;
+            }
+            .search-icon {
+                @apply absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400;
+            }
+            .input-search {
+                @apply input-base pl-10;
+            }
+
+            /* =========================================
+               CONTROLES DE CANTIDAD (+ / -)
+               ========================================= */
+            .qty-wrapper {
+                @apply flex items-center w-max bg-gray-100 rounded-xl p-1 shadow-inner border border-gray-200;
+            }
+            .qty-btn {
+                @apply w-8 h-8 rounded-lg text-gray-500 hover:bg-white hover:shadow-sm transition-all flex items-center justify-center cursor-pointer;
+            }
+            .qty-btn-minus {
+                @apply qty-btn hover:text-red-500;
+            }
+            .qty-btn-plus {
+                @apply qty-btn hover:text-frescoh-dark;
+            }
+            .qty-value {
+                @apply font-mono text-xs w-8 text-center font-black text-frescoh-dark;
+            }
+
+            /* Variantes para fondos oscuros */
+            .qty-wrapper-dark {
+                @apply flex items-center w-max bg-white/10 rounded-xl p-1 shadow-inner border border-white/10;
+            }
+            .qty-btn-dark {
+                @apply w-8 h-8 rounded-lg text-frescoh-lime opacity-70 hover:opacity-100 hover:bg-frescoh-lime hover:text-frescoh-dark hover:shadow-sm transition-all flex items-center justify-center cursor-pointer;
+            }
+            .qty-value-dark {
+                @apply font-mono text-xs w-8 text-center font-black text-white;
+            }
+        }
+
+        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
+        [x-cloak] { display: none !important; }
+    </style>

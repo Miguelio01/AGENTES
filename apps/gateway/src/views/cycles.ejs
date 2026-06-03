@@ -1,32 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              frescoh: {
-                dark: '#005035',
-                lime: '#B5F543',
-                light: '#E6F4EA'
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
-        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
-        [x-cloak] { display: none !important; }
-    </style>
+    <%- include('partials/head') %>
 </head>
 <body class="p-4 md:p-8" x-data="cyclesApp()">
     
@@ -59,8 +34,8 @@
                 <a href="/admin/orders" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Órdenes</a>
                 <a href="/admin/clients" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Clientes</a>
                 
-                <button x-show="!hasOpenCycle" @click="openModal('create')" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-black shadow-lg hover:opacity-90 transition text-xs uppercase tracking-wide">
-                    + Abrir Cosecha
+                <button x-show="!hasOpenCycle" @click="openModal('create')" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-black shadow-lg hover:opacity-90 transition text-xs flex items-center gap-2 uppercase tracking-wide">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M12 6v12m6-6H6"></path></svg> Abrir Cosecha
                 </button>
             </div>
         </header>
@@ -97,7 +72,10 @@
                                     <td class="px-4 py-4">
                                         <div class="font-bold text-gray-800 text-sm" x-text="cycle.name"></div>
                                         <div class="text-[9px] text-gray-500 font-medium mt-1">Config: <span class="font-bold" x-text="formatCurrency(cycle.deliveryFee)"></span>/domicilio</div>
-                                        <button @click="openModal('edit', cycle)" class="text-[9px] text-indigo-600 hover:underline font-bold mt-1 uppercase tracking-tighter italic">Ajustar Cosecha ✏️</button>
+                                        <button @click="openModal('edit', cycle)" class="text-[9px] text-indigo-600 hover:underline font-bold mt-1 uppercase tracking-tighter italic flex items-center gap-1">
+                                            Ajustar Cosecha 
+                                            <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                        </button>
                                     </td>
                                     
                                     <!-- Venta Productos -->

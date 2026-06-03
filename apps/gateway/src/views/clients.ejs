@@ -1,32 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              frescoh: {
-                dark: '#005035',
-                lime: '#B5F543',
-                light: '#E6F4EA'
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
-        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
-        [x-cloak] { display: none !important; }
-    </style>
+    <%- include('partials/head') %>
 </head>
 <body class="p-4 md:p-8" x-data="clientsApp()">
     
@@ -66,8 +41,10 @@
             <div class="flex flex-col md:flex-row gap-6 mb-8">
                 <div class="flex-1 card p-6 flex items-center gap-4">
                     <div class="relative flex-1">
-                        <input type="text" x-model="search" @keyup.enter="performSearch()" placeholder="Buscar por nombre, teléfono o documento..." class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 shadow-inner">
-                        <button @click="performSearch()" class="absolute right-3 top-2.5 bg-frescoh-dark text-white p-1.5 rounded-lg hover:opacity-90 transition">🔍</button>
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" x-model="search" @keyup.enter="performSearch()" placeholder="Buscar por nombre, teléfono o documento..." class="w-full border border-gray-300 rounded-xl pl-10 pr-4 py-3 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none bg-gray-50 shadow-inner">
                     </div>
                 </div>
                 <div class="card p-6 border-l-4 border-l-frescoh-lime flex flex-col justify-center min-w-[200px]">
@@ -119,8 +96,9 @@
                                         <span class="px-3 py-1 bg-frescoh-light text-frescoh-dark rounded-full font-black text-xs" x-text="client._count?.orders || 0"></span>
                                     </td>
                                     <td class="px-6 py-5 text-center">
-                                        <button @click="editClient(client)" class="bg-white border border-gray-200 text-frescoh-dark p-2 rounded-xl shadow-sm hover:bg-frescoh-dark hover:text-white transition-all group">
-                                            <span class="text-sm">✏️ Editar Datos</span>
+                                        <button @click="editClient(client)" class="bg-white border border-gray-200 text-frescoh-dark p-2 px-4 rounded-xl shadow-sm hover:bg-frescoh-dark hover:text-white transition-all group flex items-center gap-2 mx-auto">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                            <span class="text-sm font-bold">Editar Datos</span>
                                         </button>
                                     </td>
                                 </tr>

@@ -1,32 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              frescoh: {
-                dark: '#005035',
-                lime: '#B5F543',
-                light: '#E6F4EA'
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
-        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
-        [x-cloak] { display: none !important; }
-    </style>
+    <%- include('partials/head') %>
 </head>
 <body class="p-4 md:p-8" x-data="ordersApp()">
     
@@ -64,16 +39,16 @@
                   </a>
                 </div>
 
-                <a href="/admin/orders/new" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-black shadow-lg hover:scale-105 transition text-xs flex items-center gap-2 uppercase tracking-wide">
-                    ➕ Nuevo Pedido
+                <a href="/admin/orders/new" class="btn-primary">
+                    <svg class="w-3.5 h-3.5 text-frescoh-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M12 6v12m6-6H6"></path></svg> Nueva Orden
                 </a>
                 
                 <% if (currentUser?.role === 'ADMIN') { %>
                   <a :href="'/admin/orders/export-products-xlsx?cycleId=' + selectedCycleId" class="bg-white border border-orange-200 text-orange-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-orange-50 transition text-xs flex items-center gap-2 uppercase">
-                      📦 Despacho
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg> Despacho
                   </a>
                   <a :href="'/admin/orders/export-xlsx?cycleId=' + selectedCycleId" class="bg-white border border-blue-200 text-blue-600 px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-blue-50 transition text-xs flex items-center gap-2 uppercase">
-                      📦 Reporte
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg> Reporte
                   </a>
                   <a href="/admin/inventory" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Inventario</a>
                   <a href="/admin/clients" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Clientes</a>
@@ -112,7 +87,10 @@
                 <div class="bg-gray-50 px-6 py-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div class="flex flex-col md:flex-row items-start md:items-center gap-4">
                         <div>
-                            <h3 class="font-bold text-frescoh-dark uppercase tracking-tight">📋 Bitácora de Ventas</h3>
+                            <h3 class="font-bold text-frescoh-dark uppercase tracking-tight flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                                Bitácora de Ventas
+                            </h3>
                             <p class="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Control de estados y sincronización con Sheets</p>
                         </div>
                         
@@ -128,7 +106,10 @@
                         </div>
                     </div>
                     <div class="relative w-full md:w-80">
-                        <input type="text" x-model="search" placeholder="Buscar por ID, Cliente..." class="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full bg-white shadow-inner">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" x-model="search" placeholder="Buscar por ID, Cliente..." class="border border-gray-300 rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full bg-white shadow-inner">
                     </div>
                 </div>
                 
@@ -161,7 +142,7 @@
                                     <td class="px-6 py-5">
                                         <div class="font-black text-gray-800 text-sm capitalize" x-text="order.client.fullName || order.client.name"></div>
                                         <div class="text-[10px] text-gray-500 font-bold flex items-center gap-1">
-                                            <span class="opacity-50">📱</span> <span x-text="order.client.phone"></span>
+                                            <span class="opacity-50"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg></span> <span x-text="order.client.phone"></span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-5 text-[11px] text-gray-600 hidden lg:table-cell">
@@ -182,11 +163,15 @@
                                         <div x-show="!order.isEditingFee" class="flex items-center justify-end gap-2 group">
                                             <span x-show="order.deliveryFee > 0" class="text-gray-800 font-black" x-text="formatCurrency(order.deliveryFee)"></span>
                                             <span x-show="order.deliveryFee === 0" class="text-gray-400 italic text-[10px] bg-gray-50 px-2 py-1 rounded-lg border border-dashed border-gray-200">RECOGE</span>
-                                            <button @click="order.isEditingFee = true" class="opacity-0 group-hover:opacity-100 text-frescoh-dark hover:scale-125 transition cursor-pointer">✏️</button>
+                                            <button @click="order.isEditingFee = true" class="opacity-0 group-hover:opacity-100 text-frescoh-dark hover:scale-125 transition cursor-pointer flex items-center justify-center">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                            </button>
                                         </div>
                                         <div x-show="order.isEditingFee" class="flex items-center justify-end gap-1">
                                             <input type="number" x-model.number="order.newDeliveryFee" class="w-20 border-2 border-frescoh-dark rounded-lg text-right text-xs px-2 py-1 outline-none bg-white font-black">
-                                            <button @click="saveDeliveryFee(order)" class="bg-frescoh-dark text-frescoh-lime p-1 rounded-lg hover:opacity-80 shadow-sm cursor-pointer">✅</button>
+                                            <button @click="saveDeliveryFee(order)" class="bg-frescoh-dark text-frescoh-lime p-1.5 rounded-lg hover:opacity-80 shadow-sm cursor-pointer flex items-center justify-center">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg>
+                                            </button>
                                         </div>
                                     </td>
                                     <td class="px-6 py-5 text-right font-black text-frescoh-dark text-sm" x-text="formatCurrency(order.total)"></td>
@@ -222,8 +207,12 @@
                                                 <option value="delivered">Delivered</option>
                                                 <option value="cancelled">Cancelled</option>
                                             </select>
-                                            <button @click="saveStatus(order)" class="bg-frescoh-dark text-frescoh-lime p-1.5 rounded-lg hover:opacity-80 shadow-md cursor-pointer">✅</button>
-                                            <button @click="order.isEditingStatus = false; order.newStatus = order.status" class="text-red-500 hover:scale-125 transition cursor-pointer ml-1">✖</button>
+                                            <button @click="saveStatus(order)" class="bg-frescoh-dark text-frescoh-lime p-1.5 rounded-lg hover:opacity-80 shadow-md cursor-pointer flex items-center justify-center">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M5 13l4 4L19 7"></path></svg>
+                                            </button>
+                                            <button @click="order.isEditingStatus = false; order.newStatus = order.status" class="text-red-500 hover:scale-125 transition cursor-pointer ml-1 p-1">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>

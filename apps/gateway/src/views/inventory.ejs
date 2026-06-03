@@ -1,33 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= title %></title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              frescoh: {
-                dark: '#005035',
-                lime: '#B5F543',
-                light: '#E6F4EA'
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-        body { background-color: #f9fafb; font-family: 'Inter', sans-serif; }
-        .card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-        .frescoh-gradient { background: linear-gradient(135deg, #005035 0%, #003622 100%); }
-        [x-cloak] { display: none !important; }
-    </style>
+    <%- include('partials/head') %>
 </head>
 <body class="p-4 md:p-8" x-data="inventoryApp()">
     
@@ -69,8 +43,8 @@
                   <a href="/admin/clients" class="text-frescoh-dark hover:bg-frescoh-light px-4 py-2 rounded-lg font-bold transition border border-gray-200 bg-white shadow-sm text-xs uppercase tracking-tighter italic">Clientes</a>
                 <% } %>
                 
-                <a href="/admin/orders/new" class="bg-frescoh-dark text-frescoh-lime px-4 py-2 rounded-lg font-black shadow-lg hover:opacity-90 transition text-xs uppercase tracking-wide">
-                    + Nueva Orden
+                <a href="/admin/orders/new" class="btn-primary">
+                    <svg class="w-3.5 h-3.5 text-frescoh-lime" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M12 6v12m6-6H6"></path></svg> Nueva Orden
                 </a>
             </div>
         </header>
@@ -120,14 +94,17 @@
                 <div class="bg-gray-50 px-6 py-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h3 class="font-bold text-frescoh-dark uppercase tracking-tight flex items-center gap-2">
-                            📦 Panel de Operación 
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                            Panel de Operación 
                             <span class="text-[10px] bg-frescoh-dark text-white px-2 py-0.5 rounded font-black tracking-widest">REAL-TIME</span>
                         </h3>
                         <p class="text-gray-400 text-[10px] font-bold uppercase mt-1">Gestión de stock y disponibilidad en tiempo real</p>
                     </div>
                     <div class="relative w-full md:w-80">
-                        <input type="text" x-model="search" placeholder="Filtrar catálogo..." class="border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full bg-white shadow-inner">
-                        <span class="absolute right-3 top-2.5 text-gray-300 italic text-xs">🔍</span>
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" x-model="search" placeholder="Filtrar catálogo..." class="border border-gray-300 rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-frescoh-dark outline-none w-full bg-white shadow-inner">
                     </div>
                 </div>
                 <div class="overflow-x-auto">
@@ -189,9 +166,13 @@
                                     <td class="px-6 py-5">
                                         <div class="flex items-center justify-center gap-2">
                                             <div class="flex items-center bg-gray-100 rounded-xl p-1 shadow-inner border border-gray-200">
-                                                <button @click="updateStock(product.id, -1)" class="w-8 h-8 rounded-lg text-gray-500 hover:bg-white hover:text-red-500 hover:shadow-sm transition font-black flex items-center justify-center text-lg">-</button>
+                                                <button @click="updateStock(product.id, -1)" class="w-8 h-8 rounded-lg text-frescoh-dark/40 hover:bg-white hover:text-red-500 hover:shadow-sm transition flex items-center justify-center">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M18 12H6"></path></svg>
+                                                </button>
                                                 <input type="number" x-model.number="product.inputQty" class="w-10 bg-transparent text-center text-sm focus:outline-none font-black text-frescoh-dark" placeholder="0">
-                                                <button @click="updateStock(product.id, 1)" class="w-8 h-8 rounded-lg text-gray-500 hover:bg-white hover:text-frescoh-dark hover:shadow-sm transition font-black flex items-center justify-center text-lg">+</button>
+                                                <button @click="updateStock(product.id, 1)" class="w-8 h-8 rounded-lg text-frescoh-dark/40 hover:bg-white hover:text-frescoh-dark hover:shadow-sm transition flex items-center justify-center">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M12 6v12m6-6H6"></path></svg>
+                                                </button>
                                             </div>
                                             <button @click="saveBatch(product)" class="text-[10px] uppercase font-black bg-frescoh-lime text-frescoh-dark px-4 py-2.5 rounded-xl hover:scale-105 transition shadow-lg border border-frescoh-dark/10">Actualizar</button>
                                         </div>
