@@ -9,8 +9,7 @@ import { AuthGuard } from '@nestjs/passport';
 export class JwtAuthGuard extends AuthGuard('jwt') {
   handleRequest(err, user, info, context: ExecutionContext) {
     if (err || !user) {
-      const response = context.switchToHttp().getResponse();
-      return response.redirect('/auth/login');
+      throw err || new UnauthorizedException('Sesión expirada o inválida');
     }
     return user;
   }
