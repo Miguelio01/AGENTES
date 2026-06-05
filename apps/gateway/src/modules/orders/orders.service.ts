@@ -3,11 +3,10 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import {
   Order,
-  IInventoryProvider,
   INVENTORY_PROVIDER_PORT,
-  IClientRepository,
   CLIENT_REPOSITORY_PORT,
 } from '@agentes/domain';
+import type { IInventoryProvider, IClientRepository } from '@agentes/domain';
 
 export interface CreateOrderData {
   orderId?: string;
