@@ -1,5 +1,5 @@
 import { Controller, Post, Body, Logger } from '@nestjs/common';
-import { OrdersService as DomainOrdersService } from '@agentes/domain';
+import { OrdersService } from './orders.service';
 import { IsString, IsArray, IsOptional, IsNumber, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -35,7 +35,7 @@ class CreateOrderDto {
 export class WebOrdersController {
   private readonly logger = new Logger(WebOrdersController.name);
 
-  constructor(private readonly ordersService: DomainOrdersService) {}
+  constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
   async createOrder(@Body() createOrderDto: CreateOrderDto) {

@@ -20,4 +20,3 @@ export * from './ports/session.repository.port';
 export * from './entities/ai-metric.entity';
 export * from './ports/ai-metric.repository.port';
 export * from './types/a2a.types';
-export * from './services/orders.service';

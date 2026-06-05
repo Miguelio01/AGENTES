@@ -2,8 +2,7 @@ import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { CounterSchema } from '@agentes/infrastructure';
-import { OrdersService as GatewayOrdersService } from './orders.service';
-import { OrdersService as DomainOrdersService } from '@agentes/domain';
+import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { WebOrdersController } from './web-orders.controller';
 import { InvoiceService } from './invoice.service';
@@ -25,12 +24,11 @@ import { AgentsModule } from '../agents/agents.module';
     forwardRef(() => AgentsModule),
   ],
   providers: [
-    GatewayOrdersService, 
-    DomainOrdersService, 
+    OrdersService, 
     OrderSaga, 
     InvoiceService
   ],
   controllers: [OrdersController, WebOrdersController],
-  exports: [GatewayOrdersService, DomainOrdersService, InvoiceService],
+  exports: [OrdersService, InvoiceService],
 })
 export class OrdersModule {}

@@ -2,8 +2,8 @@ import { Injectable, Logger, Inject } from '@nestjs/common';
 import {
   AgentRequest,
   AgentResponse,
-  OrdersService,
 } from '@agentes/domain';
+import { OrdersService } from '../orders/orders.service';
 
 @Injectable()
 export class SalesAgentService {
