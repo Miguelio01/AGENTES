@@ -1,7 +1,7 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CounterSchema, InfrastructureModule } from '@agentes/infrastructure'; // Ajustar si es necesario
+import { CounterSchema } from '@agentes/infrastructure';
 import { OrdersService as GatewayOrdersService } from './orders.service';
 import { OrdersService as DomainOrdersService } from '@agentes/domain';
 import { OrdersController } from './orders.controller';
@@ -23,7 +23,6 @@ import { AgentsModule } from '../agents/agents.module';
     forwardRef(() => InventoryModule),
     ClientsModule,
     forwardRef(() => AgentsModule),
-    InfrastructureModule, // Asumiendo que provee los repositorios inyectables
   ],
   providers: [
     GatewayOrdersService, 
