@@ -15,6 +15,7 @@ import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { FinanceModule } from '../finance/finance.module';
 import { AiModule } from '../ai/ai.module';
 import { ClientsModule } from '../clients/clients.module';
+import { OrdersModule } from '../orders/orders.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ClientsModule } from '../clients/clients.module';
     FinanceModule,
     AiModule,
     ClientsModule,
+    forwardRef(() => OrdersModule),
   ],
   providers: [
     InventoryAgentService,

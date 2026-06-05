@@ -1,9 +1,11 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CounterSchema } from '@agentes/infrastructure';
-import { OrdersService } from './orders.service';
+import { CounterSchema, InfrastructureModule } from '@agentes/infrastructure'; // Ajustar si es necesario
+import { OrdersService as GatewayOrdersService } from './orders.service';
+import { OrdersService as DomainOrdersService } from '@agentes/domain';
 import { OrdersController } from './orders.controller';
+import { WebOrdersController } from './web-orders.controller';
 import { InvoiceService } from './invoice.service';
 import { OrderSaga } from './sagas/order.saga';
 import { ChannelsModule } from '../channels/channels.module';
@@ -21,9 +23,15 @@ import { AgentsModule } from '../agents/agents.module';
     forwardRef(() => InventoryModule),
     ClientsModule,
     forwardRef(() => AgentsModule),
+    InfrastructureModule, // Asumiendo que provee los repositorios inyectables
   ],
-  providers: [OrdersService, OrderSaga, InvoiceService],
-  controllers: [OrdersController],
-  exports: [OrdersService, InvoiceService],
+  providers: [
+    GatewayOrdersService, 
+    DomainOrdersService, 
+    OrderSaga, 
+    InvoiceService
+  ],
+  controllers: [OrdersController, WebOrdersController],
+  exports: [GatewayOrdersService, DomainOrdersService, InvoiceService],
 })
 export class OrdersModule {}
